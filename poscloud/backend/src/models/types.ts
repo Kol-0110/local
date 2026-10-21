@@ -4,7 +4,7 @@ export interface WaiterRecord {
   pin: string;
   avatar: string;
   phone?: string;
-  role: "waiter" | "head_waiter";
+  role: "waiter" | "head_waiter" | "cashier" | "owner";
   active: boolean;
   todaySales?: number;
   todayCost?: number;
@@ -29,9 +29,38 @@ export interface OrderItemRecord {
   notes?: string;
 }
 
+export type OrderStatus =
+  | "PENDING"
+  | "COOKING"
+  | "READY"
+  | "SERVED"
+  | "BILL_REQUESTED"
+  | "PAID"
+  | "CANCELLED";
+
+export type PaymentStatus = "UNPAID" | "AWAITING_PAYMENT" | "PAID" | "FAILED";
+export type PaymentChannel = "CASH" | "ETHQR" | "USSD_PUSH" | "CARD" | null;
+
+export interface PaymentAttemptRecord {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  method: Exclude<PaymentChannel, null>;
+  amount: number;
+  status: "pending" | "success" | "failed";
+  provider?: "telebirr" | "cbe" | "cash" | "ethqr";
+  providerRef?: string;
+  /** OTP relayed from waiter to cashier (short-lived, not proof by itself) */
+  otpCode?: string;
+  confirmedBy?: string;
+  createdAt: string;
+  confirmedAt?: string;
+  note?: string;
+}
+
 export interface OrderRecord {
   id: string;
-  orderNumber: string;
+  orderNumber: string; // human Order ID shown on bill e.g. ORD-1042
   branchId: string;
   tableNumber: number | null;
   orderType: "dine-in" | "takeout";
@@ -43,14 +72,18 @@ export interface OrderRecord {
   totalAmount: number;
   totalCost: number;
   netProfit: number;
-  status: "PENDING" | "COOKING" | "READY" | "SERVED" | "PAID";
-  paymentStatus: "UNPAID" | "PENDING" | "PAID";
-  paymentChannel: "CASH" | "ETHQR" | "USSD_PUSH" | "CARD" | null;
-  paymentProvider?: "telebirr" | "cbe" | "cash" | null;
+  status: OrderStatus;
+  paymentStatus: PaymentStatus;
+  paymentChannel: PaymentChannel;
+  paymentProvider?: "telebirr" | "cbe" | "cash" | "ethqr" | null;
   transactionRef?: string;
-  customerName?: string;
+  /** Same waiter owns order from create → paid */
   waiterId: string;
   waiterName: string;
+  cashierId?: string;
+  cashierName?: string;
+  customerName?: string;
+  activePaymentAttemptId?: string;
   createdAt: string;
   paidAt?: string;
 }
@@ -69,7 +102,7 @@ export interface ItemConsumptionItem {
 
 export interface DailyConsumptionRecord {
   id: string;
-  date: string; // YYYY-MM-DD
+  date: string;
   branchId: string;
   totalSales: number;
   totalCost: number;
