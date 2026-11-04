@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useMemo, Suspense } from "react";
 import { useTranslation } from "react-i18next";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useAuth } from "@/lib/authContext";
 import {
   Search,
   Plus,
@@ -34,9 +35,17 @@ import PaymentModal from "@/components/PaymentModal";
 import ReceiptModal from "@/components/ReceiptModal";
 
 function PosContent() {
+  const router = useRouter();
+  const { isSuperAdmin, isLoading } = useAuth();
   const { t, i18n } = useTranslation();
   const searchParams = useSearchParams();
   const tableParam = searchParams.get("table");
+
+  useEffect(() => {
+    if (!isLoading && isSuperAdmin) {
+      router.replace("/");
+    }
+  }, [isLoading, isSuperAdmin, router]);
 
   const { menu, tables, orders, activeWaiter } = usePOSStore();
 
@@ -134,6 +143,10 @@ function PosContent() {
       setActiveOrderId(nextOrder.id);
     }
   };
+
+  if (!isLoading && isSuperAdmin) {
+    return null;
+  }
 
   const isAmharic = i18n.language === "am";
 

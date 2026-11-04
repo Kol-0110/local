@@ -23,8 +23,16 @@ import {
   Smartphone,
   Database,
   Sparkles,
+  Crown,
+  Shield,
+  ShieldCheck,
+  LogOut,
+  LogIn,
+  KeyRound,
 } from "lucide-react";
 import { BRANCHES, usePOSStore, setActiveWaiter } from "@/lib/store";
+import { useAuth } from "@/lib/authContext";
+import { getServerStatus } from "@/lib/api";
 
 type LanguageCode = "en" | "am" | "om";
 
@@ -39,11 +47,13 @@ export default function Header() {
   const { theme, setTheme } = useTheme();
   const pathname = usePathname();
   const { waiters, activeWaiter } = usePOSStore();
+  const { user: authUser, logout, canManageRoles, isSuperAdmin } = useAuth();
 
   const [mounted, setMounted] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
   const [branchOpen, setBranchOpen] = useState(false);
   const [waiterOpen, setWaiterOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeBranch, setActiveBranch] = useState("bole");
   const [dbStatus, setDbStatus] = useState<"connected" | "ready" | "fallback">("ready");
@@ -51,6 +61,7 @@ export default function Header() {
   const langRef = useRef<HTMLDivElement>(null);
   const branchRef = useRef<HTMLDivElement>(null);
   const waiterRef = useRef<HTMLDivElement>(null);
+  const userRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -58,8 +69,7 @@ export default function Header() {
     if (savedBranch) setActiveBranch(savedBranch);
 
     // Check DB status
-    fetch("/api/status")
-      .then((res) => res.json())
+    getServerStatus()
       .then((data) => {
         if (data.connected) setDbStatus("connected");
         else setDbStatus("fallback");
@@ -77,6 +87,9 @@ export default function Header() {
       }
       if (waiterRef.current && !waiterRef.current.contains(e.target as Node)) {
         setWaiterOpen(false);
+      }
+      if (userRef.current && !userRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -106,11 +119,18 @@ export default function Header() {
 
   const navItems = [
     { href: "/", label: "Owner Dashboard", icon: LayoutDashboard },
-    { href: "/waiter", label: "Waiter Mode", icon: Smartphone, highlight: true },
-    { href: "/pos", label: "Register / POS", icon: ShoppingBag },
+    ...(!isSuperAdmin
+      ? [
+          { href: "/waiter", label: "Waiter Mode", icon: Smartphone, highlight: true },
+          { href: "/pos", label: "Register / POS", icon: ShoppingBag },
+        ]
+      : []),
     { href: "/tables", label: "Floor Tables", icon: Grid3X3 },
     { href: "/menu", label: "Menu & Cost", icon: BookOpen },
     { href: "/receipts", label: "Sales Log", icon: ReceiptText },
+    ...(canManageRoles
+      ? [{ href: "/roles", label: "Role Control", icon: ShieldCheck, highlight: false }]
+      : []),
   ];
 
   if (!mounted) {
@@ -211,64 +231,66 @@ export default function Header() {
         <div className="flex items-center gap-2 sm:gap-3">
           
           {/* Active Waiter Selector */}
-          <div className="relative" ref={waiterRef}>
-            <button
-              onClick={() => setWaiterOpen(!waiterOpen)}
-              className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-2.5 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 transition shadow-sm"
-              title="Switch Active Waiter"
-            >
-              <span className="text-base leading-none">{activeWaiter?.avatar || "👤"}</span>
-              <div className="text-left leading-tight hidden sm:block">
-                <span className="block text-[10px] uppercase font-bold text-slate-400 dark:text-zinc-400">
-                  Waiter
-                </span>
-                <span className="block font-bold text-slate-800 dark:text-white">
-                  {activeWaiter?.name}
-                </span>
-              </div>
-              <ChevronDown className={`h-3 w-3 opacity-60 transition ${waiterOpen ? "rotate-180" : ""}`} />
-            </button>
+          {!isSuperAdmin && (
+            <div className="relative" ref={waiterRef}>
+              <button
+                onClick={() => setWaiterOpen(!waiterOpen)}
+                className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-2.5 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 transition shadow-sm"
+                title="Switch Active Waiter"
+              >
+                <span className="text-base leading-none">{activeWaiter?.avatar || "👤"}</span>
+                <div className="text-left leading-tight hidden sm:block">
+                  <span className="block text-[10px] uppercase font-bold text-slate-400 dark:text-zinc-400">
+                    Waiter
+                  </span>
+                  <span className="block font-bold text-slate-800 dark:text-white">
+                    {activeWaiter?.name}
+                  </span>
+                </div>
+                <ChevronDown className={`h-3 w-3 opacity-60 transition ${waiterOpen ? "rotate-180" : ""}`} />
+              </button>
 
-            {waiterOpen && (
-              <div className="absolute right-0 mt-1.5 w-60 rounded-xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 z-50 animate-in fade-in slide-in-from-top-1">
-                <div className="px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
-                  Switch Active Waiter
-                </div>
-                <div className="space-y-1">
-                  {waiters.map((w) => (
-                    <button
-                      key={w.id}
-                      onClick={() => handleWaiterSelect(w.id)}
-                      className={`flex w-full items-center justify-between rounded-lg p-2 text-xs transition ${
-                        w.id === activeWaiter?.id
-                          ? "bg-emerald-500/10 font-bold text-emerald-600 dark:text-emerald-400"
-                          : "hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">{w.avatar}</span>
-                        <div className="text-left">
-                          <span className="block font-semibold">{w.name}</span>
-                          <span className="block text-[10px] text-slate-400">PIN: {w.pin}</span>
+              {waiterOpen && (
+                <div className="absolute right-0 mt-1.5 w-60 rounded-xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 z-50 animate-in fade-in slide-in-from-top-1">
+                  <div className="px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
+                    Switch Active Waiter
+                  </div>
+                  <div className="space-y-1">
+                    {waiters.map((w) => (
+                      <button
+                        key={w.id}
+                        onClick={() => handleWaiterSelect(w.id)}
+                        className={`flex w-full items-center justify-between rounded-lg p-2 text-xs transition ${
+                          w.id === activeWaiter?.id
+                            ? "bg-emerald-500/10 font-bold text-emerald-600 dark:text-emerald-400"
+                            : "hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">{w.avatar}</span>
+                          <div className="text-left">
+                            <span className="block font-semibold">{w.name}</span>
+                            <span className="block text-[10px] text-slate-400">PIN: {w.pin}</span>
+                          </div>
                         </div>
-                      </div>
-                      {w.id === activeWaiter?.id && <span className="text-emerald-600 font-bold">Active ✓</span>}
-                    </button>
-                  ))}
+                        {w.id === activeWaiter?.id && <span className="text-emerald-600 font-bold">Active ✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="mt-2 border-t border-slate-100 pt-2 dark:border-zinc-800">
+                    <Link
+                      href="/waiter"
+                      onClick={() => setWaiterOpen(false)}
+                      className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-600 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition"
+                    >
+                      <Smartphone className="h-3.5 w-3.5" />
+                      Open Waiter App View
+                    </Link>
+                  </div>
                 </div>
-                <div className="mt-2 border-t border-slate-100 pt-2 dark:border-zinc-800">
-                  <Link
-                    href="/waiter"
-                    onClick={() => setWaiterOpen(false)}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-600 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition"
-                  >
-                    <Smartphone className="h-3.5 w-3.5" />
-                    Open Waiter App View
-                  </Link>
-                </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
           {/* Database Status Indicator */}
           <div
@@ -282,6 +304,111 @@ export default function Header() {
             <Database className="h-3 w-3" />
             <span>{dbStatus === "connected" ? "MongoDB Live" : "MongoDB Ready"}</span>
           </div>
+
+          {/* User Profile & Role Account Dropdown */}
+          {authUser ? (
+            <div className="relative" ref={userRef}>
+              <button
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/90 px-2.5 py-1.5 text-xs font-semibold hover:bg-slate-100 dark:border-zinc-800 dark:bg-zinc-900/90 dark:text-zinc-100 transition shadow-sm"
+                title="User Profile & Role Privileges"
+              >
+                <div
+                  className={`flex h-6 w-6 items-center justify-center rounded-lg text-xs font-black text-white ${
+                    authUser.role === "super_admin"
+                      ? "bg-gradient-to-tr from-purple-600 to-indigo-600"
+                      : authUser.role === "admin"
+                      ? "bg-gradient-to-tr from-emerald-600 to-teal-600"
+                      : "bg-gradient-to-tr from-blue-600 to-cyan-600"
+                  }`}
+                >
+                  {authUser.role === "super_admin" ? "👑" : authUser.role === "admin" ? "🛡️" : "👤"}
+                </div>
+                <div className="text-left leading-tight hidden xl:block">
+                  <span className="block font-bold text-slate-800 dark:text-white truncate max-w-[100px]">
+                    {authUser.name}
+                  </span>
+                  <span
+                    className={`block text-[10px] uppercase font-black tracking-wider ${
+                      authUser.role === "super_admin"
+                        ? "text-purple-600 dark:text-purple-400"
+                        : authUser.role === "admin"
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-blue-600 dark:text-blue-400"
+                    }`}
+                  >
+                    {authUser.role.replace("_", " ")}
+                  </span>
+                </div>
+                <ChevronDown className={`h-3 w-3 opacity-60 transition ${userMenuOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              {userMenuOpen && (
+                <div className="absolute right-0 mt-1.5 w-64 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 z-50 animate-in fade-in slide-in-from-top-1">
+                  <div className="border-b border-slate-100 pb-2.5 dark:border-zinc-800">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                        {authUser.name}
+                      </span>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${
+                          authUser.role === "super_admin"
+                            ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20"
+                            : authUser.role === "admin"
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                            : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20"
+                        }`}
+                      >
+                        {authUser.role.replace("_", " ")}
+                      </span>
+                    </div>
+                    <p className="text-[11px] font-mono text-slate-400 truncate mt-0.5">{authUser.email}</p>
+                  </div>
+
+                  <div className="py-2 space-y-1">
+                    {canManageRoles && (
+                      <Link
+                        href="/roles"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800 transition"
+                      >
+                        <KeyRound className="h-3.5 w-3.5 text-purple-500" />
+                        <span>Manage User Roles</span>
+                      </Link>
+                    )}
+
+                    <Link
+                      href="/login"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800 transition"
+                    >
+                      <LogIn className="h-3.5 w-3.5 text-emerald-500" />
+                      <span>Switch Account / Sign In</span>
+                    </Link>
+
+                    <button
+                      onClick={() => {
+                        logout();
+                        setUserMenuOpen(false);
+                      }}
+                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40 transition"
+                    >
+                      <LogOut className="h-3.5 w-3.5" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <Link
+              href="/login"
+              className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-md shadow-emerald-600/30 hover:bg-emerald-500 transition"
+            >
+              <LogIn className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Sign In</span>
+            </Link>
+          )}
 
           {/* Language Selector */}
           <div className="relative" ref={langRef}>
@@ -367,6 +494,39 @@ export default function Header() {
               );
             })}
           </nav>
+
+          <div className="mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
+            {authUser ? (
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="block text-xs font-bold text-slate-900 dark:text-white">
+                    {authUser.name}
+                  </span>
+                  <span className="block text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400">
+                    Role: {authUser.role.replace("_", " ")}
+                  </span>
+                </div>
+                <button
+                  onClick={() => {
+                    logout();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="rounded-lg bg-rose-500/10 px-3 py-1.5 text-xs font-bold text-rose-600 dark:text-rose-400"
+                >
+                  Sign Out
+                </button>
+              </div>
+            ) : (
+              <Link
+                href="/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-xs font-bold text-white shadow-md shadow-emerald-600/30"
+              >
+                <LogIn className="h-4 w-4" />
+                <span>Sign In / Create Account</span>
+              </Link>
+            )}
+          </div>
         </div>
       )}
     </header>

@@ -119,3 +119,51 @@ export interface DailyConsumptionRecord {
   waiterPerformances: any[];
   savedAt: string;
 }
+
+export interface DailySalesRecord {
+  id: string;
+  date: string; // YYYY-MM-DD
+  branchId: string; // e.g. "bole", "kazanchis", "piassa", or "all"
+  totalSales: number;
+  totalCost: number;
+  netProfit: number;
+  profitMargin: string;
+  totalOrders: number;
+  paidOrdersCount: number;
+  unpaidOrdersCount: number;
+  avgTicket: number;
+  moneyBreakdown: {
+    cash: number;
+    qr: number;
+    ussd: number;
+    card: number;
+  };
+  itemsSold: Array<{
+    menuItemId?: string;
+    name: string;
+    category?: string;
+    quantity: number;
+    unitPrice: number;
+    unitCost: number;
+    totalRevenue: number;
+    totalCost: number;
+    profit: number;
+    profitMargin?: string;
+  }>;
+  waiterPerformances: Array<{
+    id: string;
+    name: string;
+    avatar?: string;
+    sales: number;
+    cost: number;
+    profit: number;
+    ordersCount: number;
+    avgTicket: number;
+    cash: number;
+    qr: number;
+    ussd: number;
+    percentageOfTotal: string;
+  }>;
+  createdAt: string;
+  updatedAt: string;
+}

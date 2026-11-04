@@ -51,6 +51,22 @@ body {
   background: rgba(156, 163, 175, 0.7);
 }
 
+/* Custom animations for expandable dashboard cards */
+@keyframes spreadIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.995);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-spread {
+  animation: spreadIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 /* Print Styles for Receipts */
 @media print {
   body * {

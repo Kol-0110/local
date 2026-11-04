@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   X,
   Smartphone,
+  Eye,
 } from "lucide-react";
 import {
   usePOSStore,
@@ -22,6 +23,7 @@ import {
   Order,
   requestTableBill,
 } from "@/lib/store";
+import { useAuth } from "@/lib/authContext";
 import PaymentModal from "@/components/PaymentModal";
 import ReceiptModal from "@/components/ReceiptModal";
 
@@ -29,6 +31,7 @@ export default function TablesPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const { tables, orders } = usePOSStore();
+  const { isSuperAdmin } = useAuth();
 
   const [selectedSection, setSelectedSection] = useState<string>("All");
   const [statusFilter, setStatusFilter] = useState<string>("All");
@@ -61,11 +64,13 @@ export default function TablesPage() {
 
   // Open POS or Waiter with table
   const handleStartOrder = (tableNumber: number) => {
+    if (isSuperAdmin) return;
     router.push(`/pos?table=${tableNumber}`);
   };
 
   // Open Payment modal directly for table
   const handleOpenPayment = (table: Table) => {
+    if (isSuperAdmin) return;
     const order = orders.find((o) => o.id === table.orderId && o.paymentStatus !== "PAID");
     if (order) {
       setSelectedOrder(order);
@@ -95,13 +100,20 @@ export default function TablesPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => router.push("/waiter")}
-              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 px-4 py-2 text-xs font-bold text-white shadow-md hover:from-amber-500 hover:to-orange-500 transition"
-            >
-              <Smartphone className="h-4 w-4" />
-              <span>Waiter Mobile View</span>
-            </button>
+            {isSuperAdmin ? (
+              <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2 text-xs font-bold text-emerald-400">
+                <Eye className="h-4 w-4 text-emerald-400" />
+                <span>Super Admin View-Only</span>
+              </div>
+            ) : (
+              <button
+                onClick={() => router.push("/waiter")}
+                className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 px-4 py-2 text-xs font-bold text-white shadow-md hover:from-amber-500 hover:to-orange-500 transition"
+              >
+                <Smartphone className="h-4 w-4" />
+                <span>Waiter Mobile View</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -269,50 +281,62 @@ export default function TablesPage() {
                   )}
                 </div>
 
-                {/* Table Actions */}
-                <div className="mt-5 space-y-2">
-                  {table.status === "available" ? (
-                    <button
-                      onClick={() => handleStartOrder(table.number)}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-xs font-bold text-white shadow-md hover:bg-emerald-500 transition active:scale-95"
-                    >
-                      <PlusCircle className="h-4 w-4" />
-                      <span>Take Order</span>
-                    </button>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-2">
+                {/* Table Actions / View-Only Mode */}
+                {isSuperAdmin ? (
+                  <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-500">
+                    <span className="flex items-center gap-1.5 text-slate-400 font-semibold">
+                      <Eye className="h-3.5 w-3.5 text-emerald-400" />
+                      <span>View-Only</span>
+                    </span>
+                    <span className="text-[11px] font-mono text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded-md">
+                      Cannot Edit
+                    </span>
+                  </div>
+                ) : (
+                  <div className="mt-5 space-y-2">
+                    {table.status === "available" ? (
                       <button
                         onClick={() => handleStartOrder(table.number)}
-                        className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 py-2 text-xs font-bold text-slate-200 hover:bg-slate-700 transition"
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-xs font-bold text-white shadow-md hover:bg-emerald-500 transition active:scale-95"
                       >
-                        <UtensilsCrossed className="h-3.5 w-3.5" />
-                        <span>Add Items</span>
+                        <PlusCircle className="h-4 w-4" />
+                        <span>Take Order</span>
                       </button>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => handleStartOrder(table.number)}
+                          className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 py-2 text-xs font-bold text-slate-200 hover:bg-slate-700 transition"
+                        >
+                          <UtensilsCrossed className="h-3.5 w-3.5" />
+                          <span>Add Items</span>
+                        </button>
 
+                        <button
+                          onClick={() => handleOpenPayment(table)}
+                          className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold text-white shadow transition ${
+                            table.status === "bill_requested"
+                              ? "bg-purple-600 hover:bg-purple-500"
+                              : "bg-emerald-600 hover:bg-emerald-500"
+                          }`}
+                        >
+                          <CreditCard className="h-3.5 w-3.5" />
+                          <span>Pay Bill</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {isOccupied && table.status !== "bill_requested" && (
                       <button
-                        onClick={() => handleOpenPayment(table)}
-                        className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold text-white shadow transition ${
-                          table.status === "bill_requested"
-                            ? "bg-purple-600 hover:bg-purple-500"
-                            : "bg-emerald-600 hover:bg-emerald-500"
-                        }`}
+                        onClick={() => requestTableBill(table.number)}
+                        className="flex w-full items-center justify-center gap-1.5 rounded-lg py-1 text-[11px] font-semibold text-purple-400 hover:bg-purple-950/40"
                       >
-                        <CreditCard className="h-3.5 w-3.5" />
-                        <span>Pay Bill</span>
+                        <Receipt className="h-3 w-3" />
+                        <span>Mark Bill Requested</span>
                       </button>
-                    </div>
-                  )}
-
-                  {isOccupied && table.status !== "bill_requested" && (
-                    <button
-                      onClick={() => requestTableBill(table.number)}
-                      className="flex w-full items-center justify-center gap-1.5 rounded-lg py-1 text-[11px] font-semibold text-purple-400 hover:bg-purple-950/40"
-                    >
-                      <Receipt className="h-3 w-3" />
-                      <span>Mark Bill Requested</span>
-                    </button>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
