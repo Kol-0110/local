@@ -9,7 +9,7 @@ import { AuthProvider } from "@/lib/authContext";
 export default function Providers({ children }: { children: ReactNode }) {
   return (
     <I18nextProvider i18n={i18n}>
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
         <AuthProvider>{children}</AuthProvider>
       </ThemeProvider>
     </I18nextProvider>

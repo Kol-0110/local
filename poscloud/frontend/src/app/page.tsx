@@ -5,15 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
-  LayoutDashboard,
-  ReceiptText,
-  Grid3X3,
-  BookOpen,
-  ShieldCheck,
-  Smartphone,
-  ShoppingBag,
-  Settings,
-  HelpCircle,
   Search,
   Bell,
   Moon,
@@ -21,1142 +12,880 @@ import {
   TrendingUp,
   TrendingDown,
   DollarSign,
-  CreditCard,
   AlertTriangle,
   MoreVertical,
+  MoreHorizontal,
   ArrowRight,
   ArrowUpRight,
   ArrowDownLeft,
-  CheckCircle2,
-  Clock,
   X,
   Menu as MenuIcon,
   Wifi,
-  Sparkles,
   Wallet,
-  Layers,
-  Database,
-  RefreshCw,
-  LogOut,
   Filter,
+  Plus,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
-import { usePOSStore, getTodayProfitReport, BRANCHES } from "@/lib/store";
+import { usePOSStore, getTodayProfitReport } from "@/lib/store";
 import { useAuth } from "@/lib/authContext";
-import { getServerStatus } from "@/lib/api";
+import Sidebar from "@/components/Sidebar";
 
 // -------------------------------------------------------------
-// Sample Initial Transactions matching the screenshot aesthetic
+// Fintrack Types & Data
 // -------------------------------------------------------------
-interface TransactionItem {
+type Status = "Success" | "Pending" | "Failed";
+type Category = "Food" | "Subscription" | "Travel" | "Shopping" | "Utilities" | "Transport" | "Dine-in";
+
+interface Transaction {
   id: string;
   description: string;
-  category: "Food Cost" | "Labor" | "Utilities" | "Rent" | "Marketing" | "Supplies" | "Dine-in Sales";
+  category: Category;
   date: string;
   amount: number;
-  type: "in" | "out";
-  status: "Success" | "Pending" | "Failed";
+  status: Status;
+  initial: string;
+  badgeBg: string;
+  badgeColor: string;
 }
 
-const DEFAULT_TRANSACTIONS: TransactionItem[] = [
+const CATEGORY_COLORS: Record<Category, string> = {
+  Food: "#a855f7",
+  Subscription: "#f59e0b",
+  Travel: "#22c55e",
+  Shopping: "#3b82f6",
+  Utilities: "#ef4444",
+  Transport: "#14b8a6",
+  "Dine-in": "#10b981",
+};
+
+const DEFAULT_TRANSACTIONS: Transaction[] = [
   {
-    id: "ORD-2026-001",
-    description: "Fresh Produce Supplier",
-    category: "Food Cost",
-    date: "Oct 01, 2026",
-    amount: 4250,
-    type: "out",
+    id: "TXN-2026-001",
+    description: "Starbucks Coffee",
+    category: "Food",
+    date: "Jul 01, 2026",
+    amount: -8.75,
     status: "Success",
+    initial: "S",
+    badgeBg: "bg-emerald-100 dark:bg-emerald-950/60",
+    badgeColor: "text-emerald-700 dark:text-emerald-400",
   },
   {
-    id: "ORD-2026-002",
-    description: "Staff Payroll - Week 44",
-    category: "Labor",
-    date: "Oct 01, 2026",
-    amount: 18700,
-    type: "out",
+    id: "TXN-2026-002",
+    description: "Netflix Subscription",
+    category: "Subscription",
+    date: "Jul 01, 2026",
+    amount: -15.99,
     status: "Success",
+    initial: "N",
+    badgeBg: "bg-rose-100 dark:bg-rose-950/60",
+    badgeColor: "text-rose-700 dark:text-rose-400",
   },
   {
-    id: "ORD-2026-003",
-    description: "Electricity - Ethio Telecom",
-    category: "Utilities",
-    date: "Oct 02, 2026",
-    amount: 3200,
-    type: "out",
+    id: "TXN-2026-003",
+    description: "Hotel Booking",
+    category: "Travel",
+    date: "Jul 02, 2026",
+    amount: -285.1,
     status: "Pending",
+    initial: "H",
+    badgeBg: "bg-amber-100 dark:bg-amber-950/60",
+    badgeColor: "text-amber-700 dark:text-amber-400",
   },
   {
-    id: "ORD-2026-004",
-    description: "Monthly Rent - Bole",
-    category: "Rent",
-    date: "Oct 03, 2026",
-    amount: 25000,
-    type: "out",
+    id: "TXN-2026-004",
+    description: "Amazon Purchase",
+    category: "Shopping",
+    date: "Jul 02, 2026",
+    amount: -79.99,
     status: "Failed",
+    initial: "A",
+    badgeBg: "bg-stone-200 dark:bg-stone-800",
+    badgeColor: "text-stone-700 dark:text-stone-300",
   },
   {
-    id: "ORD-2026-005",
-    description: "Facebook Ads Campaign",
-    category: "Marketing",
-    date: "Oct 03, 2026",
-    amount: 1850,
-    type: "out",
+    id: "TXN-2026-005",
+    description: "Electricity Bill",
+    category: "Utilities",
+    date: "Jul 03, 2026",
+    amount: -64.2,
     status: "Success",
+    initial: "E",
+    badgeBg: "bg-rose-100 dark:bg-rose-950/60",
+    badgeColor: "text-rose-700 dark:text-rose-400",
   },
   {
-    id: "ORD-2026-006",
-    description: "Kitchen Supplies - Restock",
-    category: "Supplies",
-    date: "Oct 04, 2026",
-    amount: 980,
-    type: "out",
+    id: "TXN-2026-006",
+    description: "Uber Ride",
+    category: "Transport",
+    date: "Jul 03, 2026",
+    amount: -18.4,
     status: "Success",
+    initial: "U",
+    badgeBg: "bg-teal-100 dark:bg-teal-950/60",
+    badgeColor: "text-teal-700 dark:text-teal-400",
+  },
+  {
+    id: "TXN-2026-007",
+    description: "Spotify Premium",
+    category: "Subscription",
+    date: "Jul 04, 2026",
+    amount: -10.99,
+    status: "Success",
+    initial: "S",
+    badgeBg: "bg-emerald-100 dark:bg-emerald-950/60",
+    badgeColor: "text-emerald-700 dark:text-emerald-400",
+  },
+  {
+    id: "TXN-2026-008",
+    description: "Whole Foods Market",
+    category: "Food",
+    date: "Jul 04, 2026",
+    amount: -92.35,
+    status: "Pending",
+    initial: "W",
+    badgeBg: "bg-amber-100 dark:bg-amber-950/60",
+    badgeColor: "text-amber-700 dark:text-amber-400",
   },
 ];
 
-export default function OwnerDashboard() {
+type Range = "Daily" | "Weekly" | "Monthly";
+
+export default function FintrackDashboard() {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
-  const { user: authUser, logout, canManageRoles, isSuperAdmin } = useAuth();
-  const { orders, tables, waiters } = usePOSStore();
+  const { orders } = usePOSStore();
 
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeChartPeriod, setActiveChartPeriod] = useState<"Daily" | "Weekly" | "Monthly">("Monthly");
-  const [activePaymentTab, setActivePaymentTab] = useState<"telebirr" | "cash" | "cbe">("telebirr");
+  const [statusFilter, setStatusFilter] = useState<Status | "All">("All");
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [range, setRange] = useState<Range>("Monthly");
+  const [hoveredChartPoint, setHoveredChartPoint] = useState<number | null>(null);
   const [showAlert, setShowAlert] = useState(true);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [showUserDropdown, setShowUserDropdown] = useState(false);
-  const [dbStatus, setDbStatus] = useState<"connected" | "ready">("ready");
-
-  // Hover state for interactive SVG chart
-  const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     setMounted(true);
-    getServerStatus()
-      .then((res) => {
-        if (res.connected) setDbStatus("connected");
-      })
-      .catch(() => {});
   }, []);
 
-  // Today's real store reports
+  // Real store reports
   const todayReport = useMemo(() => {
     return getTodayProfitReport("all");
   }, [orders]);
 
-  // Merge demo transactions with live store orders for recent transactions table
-  const transactions: TransactionItem[] = useMemo(() => {
-    const liveOrders: TransactionItem[] = orders.slice(-6).map((o) => ({
-      id: `ORD-${o.orderNumber || o.id.slice(0, 6).toUpperCase()}`,
-      description: o.orderType === "takeout" ? `Takeout - ${o.customerName || "Guest"}` : `Table ${o.tableNumber} - Dine-in`,
-      category: "Dine-in Sales",
+  // Merge live POS orders with Fintrack transactions
+  const allTransactions = useMemo(() => {
+    const liveItems: Transaction[] = orders.slice(-10).map((o, idx) => ({
+      id: `TXN-2026-${String(idx + 10).padStart(3, "0")}`,
+      description: o.orderType === "takeout" ? `Takeout - ${o.customerName || "Walk-in"}` : `Table ${o.tableNumber} - Order`,
+      category: "Dine-in",
       date: new Date(o.createdAt || Date.now()).toLocaleDateString("en-US", {
         month: "short",
         day: "2-digit",
         year: "numeric",
       }),
-      amount: o.totalAmount,
-      type: "in",
+      amount: -o.totalAmount,
       status: o.paymentStatus === "PAID" ? "Success" : "Pending",
+      initial: o.customerName ? o.customerName[0].toUpperCase() : "T",
+      badgeBg: "bg-cyan-100 dark:bg-cyan-950/60",
+      badgeColor: "text-cyan-700 dark:text-cyan-400",
     }));
 
-    return [...liveOrders, ...DEFAULT_TRANSACTIONS];
+    return [...DEFAULT_TRANSACTIONS, ...liveItems];
   }, [orders]);
 
-  // Filtered transactions by search query
+  // Filter transactions
   const filteredTransactions = useMemo(() => {
-    if (!searchQuery.trim()) return transactions;
-    const q = searchQuery.toLowerCase();
-    return transactions.filter(
-      (t) =>
-        t.id.toLowerCase().includes(q) ||
-        t.description.toLowerCase().includes(q) ||
-        t.category.toLowerCase().includes(q) ||
-        t.status.toLowerCase().includes(q)
-    );
-  }, [transactions, searchQuery]);
+    let list = allTransactions;
+    if (statusFilter !== "All") {
+      list = list.filter((t) => t.status === statusFilter);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(
+        (t) =>
+          t.id.toLowerCase().includes(q) ||
+          t.description.toLowerCase().includes(q) ||
+          t.category.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [allTransactions, statusFilter, searchQuery]);
 
-  // Dynamic Chart points based on active period
-  const chartData = useMemo(() => {
-    if (activeChartPeriod === "Daily") {
+  // Pagination (8 per page)
+  const pageSize = 8;
+  const totalPages = Math.ceil(filteredTransactions.length / pageSize) || 1;
+  const pagedTransactions = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredTransactions.slice(start, start + pageSize);
+  }, [filteredTransactions, currentPage]);
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === pagedTransactions.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(pagedTransactions.map((t) => t.id)));
+    }
+  };
+
+  const toggleSelectId = (id: string) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedIds(next);
+  };
+
+  // Cash Flow Chart Data series
+  const chartSeries = useMemo(() => {
+    if (range === "Monthly") {
       return [
-        { label: "08:00", revenue: 2400, expense: 950 },
-        { label: "10:00", revenue: 5800, expense: 2100 },
-        { label: "12:00", revenue: 14200, expense: 4800 },
-        { label: "14:00", revenue: 18420, expense: 6200 },
-        { label: "16:00", revenue: 12100, expense: 4100 },
-        { label: "18:00", revenue: 19800, expense: 6900 },
-        { label: "20:00", revenue: 24500, expense: 8400 },
-        { label: "22:00", revenue: 11200, expense: 3900 },
+        { label: "Jan", income: 3700, expenses: 2650 },
+        { label: "Feb", income: 3950, expenses: 2950 },
+        { label: "Mar", income: 3250, expenses: 3300 },
+        { label: "Apr", income: 3500, expenses: 3400 },
+        { label: "May", income: 4000, expenses: 4500 },
+        { label: "Jun", income: 5620, expenses: 5780 },
+        { label: "Jul", income: 6200, expenses: 5900 },
+        { label: "Aug", income: 6650, expenses: 5100 },
+        { label: "Sep", income: 6650, expenses: 4600 },
+        { label: "Oct", income: 6650, expenses: 4400 },
+        { label: "Nov", income: 5450, expenses: 4100 },
+        { label: "Dec", income: 5400, expenses: 3500 },
       ];
     }
-    if (activeChartPeriod === "Weekly") {
+    if (range === "Weekly") {
       return [
-        { label: "Mon", revenue: 16400, expense: 6200 },
-        { label: "Tue", revenue: 19200, expense: 7100 },
-        { label: "Wed", revenue: 22800, expense: 8400 },
-        { label: "Thu", revenue: 21500, expense: 7800 },
-        { label: "Fri", revenue: 34900, expense: 11800 },
-        { label: "Sat", revenue: 42800, expense: 14200 },
-        { label: "Sun", revenue: 38600, expense: 13100 },
+        { label: "W1", income: 1100, expenses: 950 },
+        { label: "W2", income: 1400, expenses: 1050 },
+        { label: "W3", income: 1350, expenses: 1200 },
+        { label: "W4", income: 1650, expenses: 1100 },
+        { label: "W5", income: 1800, expenses: 1350 },
+        { label: "W6", income: 2100, expenses: 1400 },
+        { label: "W7", income: 1950, expenses: 1300 },
+        { label: "W8", income: 2250, expenses: 1500 },
       ];
     }
-    // Monthly (matching screenshot)
+    // Daily
     return [
-      { label: "Jan", revenue: 54000, expense: 24000 },
-      { label: "Feb", revenue: 62000, expense: 25500 },
-      { label: "Mar", revenue: 69000, expense: 28000 },
-      { label: "Apr", revenue: 82000, expense: 31000 },
-      { label: "May", revenue: 98000, expense: 36000 },
-      { label: "Jun", revenue: 112000, expense: 39500 },
-      { label: "Jul", revenue: 104000, expense: 38000 },
-      { label: "Aug", revenue: 116000, expense: 41000 },
-      { label: "Sep", revenue: 125000, expense: 44000 },
-      { label: "Oct", revenue: 118000, expense: 42500 },
-      { label: "Nov", revenue: 134000, expense: 47000 },
-      { label: "Dec", revenue: 146000, expense: 52000 },
+      { label: "Mon", income: 220, expenses: 170 },
+      { label: "Tue", income: 260, expenses: 190 },
+      { label: "Wed", income: 210, expenses: 240 },
+      { label: "Thu", income: 290, expenses: 210 },
+      { label: "Fri", income: 420, expenses: 280 },
+      { label: "Sat", income: 490, expenses: 310 },
+      { label: "Sun", income: 380, expenses: 250 },
     ];
-  }, [activeChartPeriod]);
+  }, [range]);
 
-  // Payment card info by tab
-  const paymentCardInfo = useMemo(() => {
-    if (activePaymentTab === "telebirr") {
-      return {
-        brand: "Telebirr",
-        accountNumber: "0912 345 678",
-        balance: 28451,
-        share: "54.0%",
-        gradient: "from-emerald-700 via-teal-700 to-emerald-900 border-emerald-500/30",
-        type: "Mobile Merchant",
-      };
-    }
-    if (activePaymentTab === "cbe") {
-      return {
-        brand: "CBE Birr",
-        accountNumber: "1000 4829 1930",
-        balance: 32180,
-        share: "32.5%",
-        gradient: "from-indigo-800 via-purple-800 to-indigo-950 border-indigo-500/30",
-        type: "Direct Bank QR",
-      };
-    }
-    return {
-      brand: "Cash Drawer",
-      accountNumber: "Cash Drawer #1",
-      balance: 16269,
-      share: "13.5%",
-      gradient: "from-amber-700 via-orange-800 to-amber-950 border-amber-500/30",
-      type: "Physical Cash",
-    };
-  }, [activePaymentTab]);
-
-  // KPI Calculations
-  const todayRevenue = todayReport.totalSales > 0 ? todayReport.totalSales : 18420;
-  const totalExpense = todayReport.totalCost > 0 ? todayReport.totalCost : 76900;
-  const profitMarginPercent =
-    todayReport.totalSales > 0 ? todayReport.profitMargin : "40.1%";
-
-  // Navigation Items matching the side navigation, retaining application paths
-  const mainNavItems = [
-    { href: "/", label: "Owner Dashboard", icon: LayoutDashboard, active: true },
-    { href: "/receipts", label: "Sales Log", icon: ReceiptText },
-    { href: "/tables", label: "Floor Tables", icon: Grid3X3 },
-    { href: "/menu", label: "Menu & Cost", icon: BookOpen },
-    ...(canManageRoles
-      ? [{ href: "/roles", label: "Role Control", icon: ShieldCheck }]
-      : []),
-    ...(!isSuperAdmin
-      ? [
-          { href: "/waiter", label: "Waiter Mode", icon: Smartphone },
-          { href: "/pos", label: "Register / POS", icon: ShoppingBag },
-        ]
-      : []),
-  ];
+  // Number of active pills in Card Spending meter (15 out of 24)
+  const meterCount = 24;
+  const activeMeterBars = 15;
 
   return (
-    <div className="min-h-screen bg-[#0e0c0a] text-stone-100 flex flex-col lg:flex-row font-sans selection:bg-amber-500/30 selection:text-amber-200">
+    <div className="min-h-screen bg-[#f4f6f8] dark:bg-[#0b0c0d] text-[#111418] dark:text-[#f2f3f4] flex flex-col lg:flex-row font-sans selection:bg-cyan-500/20 transition-colors duration-200">
       
-      {/* ============================================================== */}
-      {/* 1. LEFT SIDE NAVIGATION                                        */}
-      {/* ============================================================== */}
-      <aside className="hidden lg:flex w-64 flex-col justify-between border-r border-[#221c17] bg-[#120f0d] p-4 shrink-0 select-none">
-        <div className="space-y-6">
-          
-          {/* 1.1 Brand Logo */}
-          <div className="flex items-center gap-3 px-2 pt-1">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 font-black text-stone-950 shadow-md shadow-amber-500/20 text-sm">
-              <span className="tracking-tighter font-mono">{"//"}</span>
-            </div>
-            <div>
-              <span className="text-base font-black tracking-tight text-white block leading-tight">
-                Bistro OS
-              </span>
-              <span className="text-[10px] font-semibold text-stone-500 uppercase tracking-widest block">
-                Restaurant Cloud
-              </span>
-            </div>
-          </div>
+      {/* 1. SHARED UNIFIED FINTRACK SIDEBAR */}
+      <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} />
 
-          {/* 1.2 User Profile Card */}
-          <div className="relative">
-            <div
-              onClick={() => setShowUserDropdown(!showUserDropdown)}
-              className="flex items-center justify-between rounded-2xl border border-[#2b221a] bg-[#1a1512] p-2.5 transition hover:bg-[#221c17] cursor-pointer"
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-amber-600 to-amber-800 text-xs font-black text-white shadow-inner">
-                  {authUser?.name
-                    ? authUser.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")
-                        .slice(0, 2)
-                        .toUpperCase()
-                    : "AK"}
-                </div>
-                <div className="text-left leading-tight">
-                  <span className="block text-xs font-bold text-white">
-                    {authUser?.name || "Abebe Kebede"}
-                  </span>
-                  <span className="block text-[11px] text-stone-400">
-                    Bistro Addis
-                  </span>
-                </div>
-              </div>
-              <MoreVertical className="h-4 w-4 text-stone-500 hover:text-stone-300" />
-            </div>
-
-            {/* Profile Dropdown */}
-            {showUserDropdown && (
-              <div className="absolute left-0 right-0 top-full mt-1.5 z-50 rounded-xl border border-[#342921] bg-[#181411] p-2 shadow-2xl animate-in fade-in slide-in-from-top-1">
-                <div className="px-2 py-1.5 text-[11px] text-stone-400 border-b border-[#292019] mb-1">
-                  <span className="block font-bold text-white">{authUser?.email || "owner@bistro.et"}</span>
-                  <span className="text-[10px] uppercase font-bold text-amber-400">
-                    Role: {authUser?.role?.replace("_", " ") || "Owner"}
-                  </span>
-                </div>
-                {authUser ? (
-                  <button
-                    onClick={() => logout()}
-                    className="flex w-full items-center gap-2 rounded-lg p-2 text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition"
-                  >
-                    <LogOut className="h-3.5 w-3.5" />
-                    <span>Sign Out</span>
-                  </button>
-                ) : (
-                  <Link
-                    href="/login"
-                    className="flex w-full items-center gap-2 rounded-lg p-2 text-xs font-semibold text-amber-400 hover:bg-amber-500/10 transition"
-                  >
-                    <span>Sign In</span>
-                  </Link>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* 1.3 Main Menu Navigation */}
-          <div>
-            <div className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-stone-500">
-              Main menu
-            </div>
-            <nav className="space-y-1">
-              {mainNavItems.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition ${
-                      item.active
-                        ? "bg-[#241c16] text-amber-400 font-bold border-l-2 border-amber-500 shadow-sm"
-                        : "text-stone-400 hover:bg-[#1a1512] hover:text-stone-200"
-                    }`}
-                  >
-                    <Icon className={`h-4 w-4 ${item.active ? "text-amber-400" : "text-stone-500"}`} />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
-
-          {/* 1.4 Support Section */}
-          <div>
-            <div className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-stone-500">
-              Support
-            </div>
-            <nav className="space-y-1">
-              <button
-                onClick={() => alert("Settings configuration panel is ready in Role Control and Menu.")}
-                className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-stone-400 hover:bg-[#1a1512] hover:text-stone-200 transition text-left"
-              >
-                <Settings className="h-4 w-4 text-stone-500" />
-                <span>Settings</span>
-              </button>
-              <button
-                onClick={() => alert("Bistro OS Support: Call +251 911 234 567 or visit docs.")}
-                className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-stone-400 hover:bg-[#1a1512] hover:text-stone-200 transition text-left"
-              >
-                <HelpCircle className="h-4 w-4 text-stone-500" />
-                <span>Help & Support</span>
-              </button>
-            </nav>
-          </div>
-        </div>
-
-        {/* 1.5 Upgrade to Pro Card */}
-        <div className="mt-6 rounded-2xl border border-[#2e231b] bg-gradient-to-b from-[#1a1512] to-[#14100d] p-4 shadow-xl space-y-2.5">
-          <div className="flex items-center gap-2">
-            <span className="flex h-5 w-5 items-center justify-center rounded-md bg-amber-500/20 text-amber-400 text-xs">
-              ★
-            </span>
-            <span className="text-xs font-bold text-white">Upgrade to Pro</span>
-          </div>
-          <p className="text-[11px] text-stone-400 leading-relaxed">
-            AI insights, multi-branch & advanced reports.
-          </p>
-          <button
-            onClick={() => setShowUpgradeModal(true)}
-            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-3 py-2 text-xs font-extrabold text-stone-950 shadow-md shadow-amber-500/20 hover:from-amber-400 hover:to-amber-500 transition active:scale-95"
-          >
-            <span>Upgrade Pro</span>
-            <ArrowRight className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </aside>
-
-      {/* ============================================================== */}
-      {/* 2. MOBILE TOP BAR & DRAWER                                     */}
-      {/* ============================================================== */}
-      <div className="lg:hidden flex items-center justify-between border-b border-[#221c17] bg-[#120f0d] px-4 py-3 sticky top-0 z-40">
+      {/* 2. MOBILE TOPBAR */}
+      <div className="lg:hidden flex items-center justify-between border-b border-[#e3e6ea] dark:border-[#232527] bg-white dark:bg-[#0f1011] px-4 py-3 sticky top-0 z-40">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500 font-black text-stone-950 text-xs">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-400 to-cyan-600 font-black text-[#04262d] text-xs shadow-sm">
             //
           </div>
-          <span className="font-black text-white text-base">Bistro OS</span>
+          <span className="font-bold text-[#111418] dark:text-white text-base">Fintrack</span>
         </div>
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#2b221a] bg-[#1a1512] text-stone-300"
+          className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#e3e6ea] dark:border-[#232527] bg-[#f1f3f5] dark:bg-[#1b1c1e] text-[#111418] dark:text-[#f2f3f4]"
         >
           {mobileMenuOpen ? <X className="h-5 w-5" /> : <MenuIcon className="h-5 w-5" />}
         </button>
       </div>
 
-      {mobileMenuOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm p-4 pt-16 flex flex-col justify-between">
-          <div className="space-y-4 bg-[#14100d] border border-[#2b221a] rounded-2xl p-4">
-            <div className="flex items-center justify-between border-b border-[#221c17] pb-3">
-              <span className="font-bold text-white text-sm">Navigation</span>
-              <button onClick={() => setMobileMenuOpen(false)} className="text-stone-400">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <nav className="space-y-1">
-              {mainNavItems.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-semibold ${
-                      item.active ? "bg-[#241c16] text-amber-400 font-bold" : "text-stone-300"
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
-          <button
-            onClick={() => setMobileMenuOpen(false)}
-            className="w-full py-3 rounded-xl bg-stone-800 text-stone-300 text-xs font-bold"
-          >
-            Close Menu
-          </button>
-        </div>
-      )}
-
-      {/* ============================================================== */}
-      {/* 3. MAIN DASHBOARD CONTENT AREA                                 */}
-      {/* ============================================================== */}
-      <main className="flex-1 flex flex-col p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto w-full overflow-y-auto">
+      {/* 3. MAIN DASHBOARD CONTENT AREA */}
+      <main className="flex-1 flex flex-col p-4 sm:p-6 lg:p-7 space-y-5 max-w-[1500px] w-full overflow-y-auto">
         
-        {/* 3.1 TOP BAR (Dashboard Title & Controls) */}
-        <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-              Dashboard
-            </h1>
-            <p className="text-xs text-stone-400 mt-0.5">
-              Live executive summary, sales revenue, payment reconciliation, and ledger
-            </p>
-          </div>
+        {/* 3.1 TOPBAR */}
+        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <h1 className="text-2xl font-bold tracking-tight text-[#111418] dark:text-[#f2f3f4]">
+            Dashboard
+          </h1>
 
-          {/* Top Controls: Search, Notifications, Theme, User */}
-          <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap">
-            {/* Search Input */}
-            <div className="relative flex items-center bg-[#171310] border border-[#2b221a] rounded-xl px-3 py-1.5 focus-within:border-amber-500/60 transition w-full sm:w-56 md:w-64">
-              <Search className="h-3.5 w-3.5 text-stone-400 mr-2 shrink-0" />
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Search Input with ⌘ K */}
+            <div className="relative flex items-center bg-white dark:bg-[#141516] border border-[#e3e6ea] dark:border-[#232527] rounded-lg px-3 py-1.5 w-full sm:w-60 shadow-sm focus-within:border-cyan-600 transition-all duration-200">
+              <Search className="h-4 w-4 text-[#9aa1a9] dark:text-[#5d6166] mr-2 shrink-0" />
               <input
                 type="text"
                 placeholder="Search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-transparent text-xs text-white placeholder-stone-500 focus:outline-none"
+                className="w-full bg-transparent text-xs text-[#111418] dark:text-[#f2f3f4] placeholder-[#9aa1a9] focus:outline-none"
               />
-              <span className="hidden sm:inline-block bg-[#241c16] text-stone-400 text-[10px] font-mono px-1.5 py-0.5 rounded border border-[#382b21] shrink-0">
+              <kbd className="hidden sm:inline-block bg-[#f1f3f5] dark:bg-[#1b1c1e] text-[#5f6670] dark:text-[#8b8f94] text-[10px] font-mono px-1.5 py-0.5 rounded border border-[#e3e6ea] dark:border-[#232527] shrink-0">
                 ⌘ K
-              </span>
+              </kbd>
             </div>
 
             {/* Notification Bell */}
             <button
-              onClick={() => alert("All restaurant systems operational. No unhandled alerts.")}
-              className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-[#2b221a] bg-[#171310] text-stone-300 hover:text-white transition"
+              onClick={() => alert("You have 1 unread spending alert.")}
+              className="relative flex h-8 w-8 items-center justify-center rounded-lg border border-[#e3e6ea] dark:border-[#232527] bg-white dark:bg-[#141516] text-[#5f6670] dark:text-[#8b8f94] hover:text-[#111418] dark:hover:text-[#f2f3f4] hover:scale-105 active:scale-95 transition-all shadow-sm"
               title="Notifications"
             >
               <Bell className="h-4 w-4" />
-              <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-[#120f0d]" />
+              <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-[#141516]" />
             </button>
 
-            {/* Theme Toggle (Warm Moon / Sun) */}
-            <button
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#2b221a] bg-[#171310] text-amber-400 hover:bg-[#221a14] transition"
-              title="Toggle Theme Mode"
-            >
-              <Moon className="h-4 w-4" />
-            </button>
-
-            {/* Small Avatar Pill */}
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-600 to-amber-700 text-xs font-bold text-white shadow">
-              {authUser?.name ? authUser.name[0].toUpperCase() : "A"}
+            {/* Fintrack Theme Toggle (Dark & Light buttons) */}
+            <div className="flex items-center rounded-lg border border-[#e3e6ea] dark:border-[#232527] bg-[#f1f3f5] dark:bg-[#1b1c1e] p-0.5 shadow-sm">
+              <button
+                onClick={() => setTheme("dark")}
+                className={`flex h-7 w-7 items-center justify-center rounded-md transition-all duration-200 ${
+                  theme === "dark"
+                    ? "bg-[#141516] text-white shadow-sm scale-105"
+                    : "text-[#5f6670] hover:text-[#111418]"
+                }`}
+                title="Dark mode (Secondary)"
+              >
+                <Moon className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => setTheme("light")}
+                className={`flex h-7 w-7 items-center justify-center rounded-md transition-all duration-200 ${
+                  theme === "light" || !theme
+                    ? "bg-white text-[#111418] shadow-sm scale-105"
+                    : "text-[#8b8f94] hover:text-white"
+                }`}
+                title="Light mode (Default)"
+              >
+                <Sun className="h-3.5 w-3.5" />
+              </button>
             </div>
           </div>
-        </div>
+        </header>
 
-        {/* 3.2 ALERT BANNER (From Screenshot 2) */}
+        {/* 3.2 SPENDING ALERT BANNER */}
         {showAlert && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-[#3e2c1e] bg-[#221a14] p-3.5 sm:px-4 shadow-lg animate-in fade-in">
-            <div className="flex items-center gap-3 text-xs text-amber-200/90 font-medium">
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-500/20 text-amber-400 font-bold">
-                <AlertTriangle className="h-4 w-4 text-amber-400" />
-              </span>
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-[#fde68a] dark:border-[#524412] bg-[#fef3c7] dark:bg-[#3a3210] px-4 py-2.5 text-xs text-[#a16207] dark:text-[#facc15] shadow-sm animate-in fade-in transition-all duration-200 hover:shadow-md">
+            <div className="flex items-center gap-2 font-medium">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-[#a16207] dark:text-[#facc15]" />
               <span>
-                <strong className="text-white font-bold">Alert:</strong> Food cost is running 1.2% above target this week.
+                <strong>Spending Alert:</strong> Dining expenses are 15% higher than your monthly average.
               </span>
             </div>
-            <div className="flex items-center gap-2 self-end sm:self-auto">
+            <div className="flex items-center gap-3 shrink-0">
               <Link
                 href="/menu"
-                className="flex items-center gap-1.5 rounded-xl border border-[#4a3525] bg-[#2d2218] px-3.5 py-1.5 text-xs font-bold text-stone-200 hover:bg-[#382b20] transition"
+                className="font-semibold text-[#a16207] dark:text-[#facc15] hover:underline flex items-center gap-1 group"
               >
-                <span>Review budgets</span>
-                <ArrowRight className="h-3 w-3" />
+                <span>See details</span>
+                <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
               </Link>
-              <button
-                onClick={() => setShowAlert(false)}
-                className="text-stone-400 hover:text-white p-1"
-                title="Dismiss Alert"
-              >
-                <X className="h-4 w-4" />
+              <button onClick={() => setShowAlert(false)} className="opacity-70 hover:opacity-100">
+                <X className="h-3.5 w-3.5" />
               </button>
             </div>
           </div>
         )}
 
-        {/* 3.3 THREE TOP KPI CARDS */}
+        {/* 3.3 TOP 3 STAT CARDS WITH COOL HOVER EFFECTS */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           
-          {/* CARD 1: Today's Revenue (The Radiant Cobalt Blue Featured Card from Screenshot 2) */}
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#2563eb] via-[#1d4ed8] to-[#1e40af] p-5 text-white shadow-2xl shadow-blue-950/40 border border-blue-400/30 flex flex-col justify-between group">
-            {/* Subtle light aura */}
-            <div className="absolute -right-8 -bottom-8 h-32 w-32 rounded-full bg-white/10 blur-2xl group-hover:bg-white/15 transition" />
-
-            <div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/15 text-white backdrop-blur-sm">
-                    <Wallet className="h-3.5 w-3.5" />
-                  </span>
-                  <span className="text-xs font-semibold text-blue-100">
-                    Today&apos;s Revenue
-                  </span>
-                </div>
-                <button
-                  onClick={() => router.push("/receipts")}
-                  className="text-blue-200 hover:text-white p-1 transition"
-                  title="View sales logs"
-                >
-                  <MoreVertical className="h-4 w-4" />
-                </button>
+          {/* Card 1: Total Balance */}
+          <article className="group rounded-xl border border-[#e3e6ea] dark:border-[#232527] bg-white dark:bg-[#141516] shadow-sm flex flex-col justify-between transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lg hover:border-cyan-500/40 dark:hover:border-cyan-400/40 cursor-pointer">
+            <div className="flex items-center justify-between p-3.5 pb-0 text-xs text-[#5f6670] dark:text-[#8b8f94]">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-[#f1f3f5] dark:bg-[#1b1c1e] text-[#111418] dark:text-white group-hover:bg-cyan-50 dark:group-hover:bg-cyan-950/40 group-hover:text-cyan-600 transition-colors">
+                  <Wallet className="h-4 w-4" />
+                </span>
+                <span className="font-medium group-hover:text-[#111418] dark:group-hover:text-white transition-colors">Total Balance</span>
               </div>
-
-              {/* Big Value */}
-              <div className="mt-4">
-                <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
-                  ETB {todayRevenue.toLocaleString()}
-                </h2>
-              </div>
+              <button className="text-[#9aa1a9] hover:text-[#111418] dark:hover:text-white">
+                <MoreVertical className="h-4 w-4" />
+              </button>
             </div>
-
-            {/* Bottom info */}
-            <div className="mt-4 flex items-center justify-between pt-2 border-t border-white/15 text-xs">
-              <span className="text-blue-100 font-medium">vs yesterday</span>
-              <span className="rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-black text-white border border-white/25 backdrop-blur-sm">
+            <div className="px-3.5 py-3 text-2xl font-semibold text-[#111418] dark:text-[#f2f3f4] font-mono tracking-tight group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
+              ${(todayReport.totalSales > 0 ? todayReport.totalSales + 77387 : 82450).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+            </div>
+            <div className="flex items-center justify-between border-t border-[#e3e6ea] dark:border-[#232527] px-3.5 py-2.5 text-xs text-[#5f6670] dark:text-[#8b8f94]">
+              <span>Positive growth</span>
+              <span className="rounded bg-[#dcfce7] dark:bg-[#12301a] px-2 py-0.5 text-[10.5px] font-semibold text-[#15803d] dark:text-[#4ade80] shadow-sm">
                 +12.4%
               </span>
             </div>
-          </div>
+          </article>
 
-          {/* CARD 2: Total Expense */}
-          <div className="rounded-2xl border border-[#2b221a] bg-[#16120f] p-5 shadow-lg flex flex-col justify-between hover:border-[#3a2d23] transition">
-            <div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#241c16] text-stone-400">
-                    <ReceiptText className="h-3.5 w-3.5" />
-                  </span>
-                  <span className="text-xs font-semibold text-stone-400">
-                    Total Expense
-                  </span>
-                </div>
-                <button
-                  onClick={() => router.push("/menu")}
-                  className="text-stone-500 hover:text-stone-300 p-1"
-                  title="View item costs"
-                >
-                  <MoreVertical className="h-4 w-4" />
-                </button>
+          {/* Card 2: Total Income */}
+          <article className="group rounded-xl border border-[#e3e6ea] dark:border-[#232527] bg-white dark:bg-[#141516] shadow-sm flex flex-col justify-between transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lg hover:border-emerald-500/40 dark:hover:border-emerald-400/40 cursor-pointer">
+            <div className="flex items-center justify-between p-3.5 pb-0 text-xs text-[#5f6670] dark:text-[#8b8f94]">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-[#f1f3f5] dark:bg-[#1b1c1e] text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-50 dark:group-hover:bg-emerald-950/40 transition-colors">
+                  <TrendingUp className="h-4 w-4" />
+                </span>
+                <span className="font-medium group-hover:text-[#111418] dark:group-hover:text-white transition-colors">Total Income</span>
               </div>
-
-              <div className="mt-4">
-                <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
-                  ETB {totalExpense.toLocaleString()}
-                </h2>
-              </div>
+              <button className="text-[#9aa1a9] hover:text-[#111418] dark:hover:text-white">
+                <MoreVertical className="h-4 w-4" />
+              </button>
             </div>
-
-            <div className="mt-4 flex items-center justify-between pt-2 border-t border-[#241c16] text-xs">
-              <span className="text-stone-400 font-medium">this month</span>
-              <span className="rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30 px-2.5 py-0.5 text-xs font-bold">
-                +3.8%
+            <div className="px-3.5 py-3 text-2xl font-semibold text-[#111418] dark:text-[#f2f3f4] font-mono tracking-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+              ${(todayReport.totalSales > 0 ? todayReport.totalSales : 9820).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+            </div>
+            <div className="flex items-center justify-between border-t border-[#e3e6ea] dark:border-[#232527] px-3.5 py-2.5 text-xs text-[#5f6670] dark:text-[#8b8f94]">
+              <span>Monthly increase</span>
+              <span className="rounded bg-[#dcfce7] dark:bg-[#12301a] px-2 py-0.5 text-[10.5px] font-semibold text-[#15803d] dark:text-[#4ade80] shadow-sm">
+                +8.6%
               </span>
             </div>
-          </div>
+          </article>
 
-          {/* CARD 3: Profit Margin */}
-          <div className="rounded-2xl border border-[#2b221a] bg-[#16120f] p-5 shadow-lg flex flex-col justify-between hover:border-[#3a2d23] transition">
-            <div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#241c16] text-stone-400">
-                    <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
-                  </span>
-                  <span className="text-xs font-semibold text-stone-400">
-                    Profit Margin
-                  </span>
-                </div>
-                <button
-                  onClick={() => alert(`Gross Sales: ${todayRevenue} ETB\nTotal Costs: ${totalExpense} ETB\nNet Profit Margin: ${profitMarginPercent}`)}
-                  className="text-stone-500 hover:text-stone-300 p-1"
-                  title="Margin details"
-                >
-                  <MoreVertical className="h-4 w-4" />
-                </button>
+          {/* Card 3: Total Expenses */}
+          <article className="group rounded-xl border border-[#e3e6ea] dark:border-[#232527] bg-white dark:bg-[#141516] shadow-sm flex flex-col justify-between transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lg hover:border-rose-500/40 dark:hover:border-rose-400/40 cursor-pointer">
+            <div className="flex items-center justify-between p-3.5 pb-0 text-xs text-[#5f6670] dark:text-[#8b8f94]">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-[#f1f3f5] dark:bg-[#1b1c1e] text-rose-600 dark:text-rose-400 group-hover:bg-rose-50 dark:group-hover:bg-rose-950/40 transition-colors">
+                  <TrendingDown className="h-4 w-4" />
+                </span>
+                <span className="font-medium group-hover:text-[#111418] dark:group-hover:text-white transition-colors">Total Expenses</span>
               </div>
-
-              <div className="mt-4">
-                <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
-                  {profitMarginPercent}
-                </h2>
-              </div>
+              <button className="text-[#9aa1a9] hover:text-[#111418] dark:hover:text-white">
+                <MoreVertical className="h-4 w-4" />
+              </button>
             </div>
-
-            <div className="mt-4 flex items-center justify-between pt-2 border-t border-[#241c16] text-xs">
-              <span className="text-stone-400 font-medium">target ≥ 35%</span>
-              <span className="rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-bold">
-                +2%
+            <div className="px-3.5 py-3 text-2xl font-semibold text-[#111418] dark:text-[#f2f3f4] font-mono tracking-tight group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">
+              ${(todayReport.totalCost > 0 ? todayReport.totalCost : 4630).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+            </div>
+            <div className="flex items-center justify-between border-t border-[#e3e6ea] dark:border-[#232527] px-3.5 py-2.5 text-xs text-[#5f6670] dark:text-[#8b8f94]">
+              <span>Lower spending</span>
+              <span className="rounded bg-[#fee2e2] dark:bg-[#3a1414] px-2 py-0.5 text-[10.5px] font-semibold text-[#b91c1c] dark:text-[#f87171] shadow-sm">
+                -5.1%
               </span>
             </div>
-          </div>
+          </article>
         </div>
 
-        {/* 3.4 TWO COLUMN MIDDLE SECTION: Chart (Left) + Payment Methods & Widgets (Right) */}
+        {/* 3.4 MIDDLE GRID: Cash Flow Overview (Left) + My Cards (Right) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
           
           {/* ============================================================== */}
-          {/* 3.4.1 LEFT: REVENUE VS EXPENSES INTERACTIVE CHART (8 cols)     */}
+          {/* 3.4.1 LEFT: CASH FLOW OVERVIEW CHART (8 cols)                  */}
           {/* ============================================================== */}
-          <div className="lg:col-span-8 flex flex-col justify-between rounded-2xl border border-[#2b221a] bg-[#16120f] p-5 shadow-xl space-y-4">
+          <article className="lg:col-span-8 rounded-xl border border-[#e3e6ea] dark:border-[#232527] bg-white dark:bg-[#141516] p-5 shadow-sm space-y-4 flex flex-col justify-between transition-all duration-300 hover:shadow-md hover:border-cyan-500/30">
             
-            {/* Chart Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h3 className="text-base font-bold text-white tracking-tight">
-                  Revenue vs Expenses
-                </h3>
-                <p className="text-[11px] text-stone-400">
-                  Cashflow trajectory comparing gross customer bills against inventory and operating overhead
-                </p>
-              </div>
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold text-[#111418] dark:text-[#f2f3f4]">
+                Cash Flow Overview
+              </h2>
 
-              {/* Daily / Weekly / Monthly Switcher */}
-              <div className="flex items-center rounded-xl bg-[#201914] p-1 border border-[#2b221a] self-start sm:self-auto">
-                {(["Daily", "Weekly", "Monthly"] as const).map((period) => (
+              {/* Range Switcher */}
+              <div className="flex items-center rounded-lg border border-[#e3e6ea] dark:border-[#232527] bg-[#f1f3f5] dark:bg-[#1b1c1e] p-0.5">
+                {(["Daily", "Weekly", "Monthly"] as Range[]).map((r) => (
                   <button
-                    key={period}
-                    onClick={() => setActiveChartPeriod(period)}
-                    className={`rounded-lg px-3 py-1 text-xs font-bold transition ${
-                      activeChartPeriod === period
-                        ? "bg-[#2d2218] text-white shadow-sm border border-[#3f2e21]"
-                        : "text-stone-400 hover:text-white"
+                    key={r}
+                    onClick={() => setRange(r)}
+                    className={`rounded-md px-2.5 py-1 text-xs transition-all duration-200 ${
+                      range === r
+                        ? "bg-white dark:bg-[#141516] text-[#111418] dark:text-white font-medium shadow-sm scale-105"
+                        : "text-[#5f6670] dark:text-[#8b8f94] hover:text-[#111418] dark:hover:text-white"
                     }`}
                   >
-                    {period}
+                    {r}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* SVG Chart Canvas */}
-            <div className="relative w-full pt-4">
-              <div className="flex justify-between text-[11px] text-stone-500 font-mono mb-2">
-                <span>160K</span>
-                <span>120K</span>
-                <span>80K</span>
-                <span>40K</span>
-                <span>0 ETB</span>
+            {/* Chart Area */}
+            <div className="relative pt-2">
+              <div className="flex justify-between text-[11px] text-[#9aa1a9] dark:text-[#5d6166] font-mono mb-2">
+                <span>$7.5K</span>
+                <span>$6.0K</span>
+                <span>$4.5K</span>
+                <span>$3.0K</span>
+                <span>$1.5K</span>
+                <span>$0</span>
               </div>
 
-              <div className="relative h-64 sm:h-72 w-full overflow-hidden">
-                {/* Horizontal reference lines */}
-                <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
-                  <div className="border-b border-stone-600 w-full" />
-                  <div className="border-b border-stone-600 w-full" />
-                  <div className="border-b border-stone-600 w-full" />
-                  <div className="border-b border-stone-600 w-full" />
-                  <div className="border-b border-stone-600 w-full" />
+              <div className="relative h-60 w-full overflow-hidden">
+                {/* Horizontal grid lines */}
+                <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-40">
+                  <div className="border-b border-[#e3e6ea] dark:border-[#232527]" />
+                  <div className="border-b border-[#e3e6ea] dark:border-[#232527]" />
+                  <div className="border-b border-[#e3e6ea] dark:border-[#232527]" />
+                  <div className="border-b border-[#e3e6ea] dark:border-[#232527]" />
+                  <div className="border-b border-[#e3e6ea] dark:border-[#232527]" />
                 </div>
 
                 {/* SVG Curves */}
                 <svg
                   className="w-full h-full overflow-visible"
-                  viewBox="0 0 1000 240"
+                  viewBox="0 0 1000 220"
                   preserveAspectRatio="none"
                 >
                   <defs>
-                    <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#10b981" stopOpacity="0.35" />
-                      <stop offset="85%" stopColor="#10b981" stopOpacity="0.02" />
-                      <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
+                    <linearGradient id="fintrackIncomeGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#0891b2" stopOpacity="0.25" />
+                      <stop offset="100%" stopColor="#0891b2" stopOpacity="0.0" />
                     </linearGradient>
                   </defs>
 
-                  {/* Dynamic Revenue Curve Area */}
                   {(() => {
-                    const maxVal = 160000;
-                    const stepX = 1000 / (chartData.length - 1);
-                    const revPoints = chartData.map((d, i) => {
+                    const maxVal = 7500;
+                    const stepX = 1000 / (chartSeries.length - 1);
+                    const incPoints = chartSeries.map((d, i) => {
                       const x = i * stepX;
-                      const y = 230 - (d.revenue / maxVal) * 200;
+                      const y = 210 - (d.income / maxVal) * 190;
                       return { x, y, ...d };
                     });
 
-                    // Build smooth bezier path
-                    let revPath = `M ${revPoints[0].x} ${revPoints[0].y}`;
-                    for (let i = 0; i < revPoints.length - 1; i++) {
-                      const p0 = revPoints[i];
-                      const p1 = revPoints[i + 1];
+                    let incPath = `M ${incPoints[0].x} ${incPoints[0].y}`;
+                    for (let i = 0; i < incPoints.length - 1; i++) {
+                      const p0 = incPoints[i];
+                      const p1 = incPoints[i + 1];
                       const cx = (p0.x + p1.x) / 2;
-                      revPath += ` C ${cx} ${p0.y}, ${cx} ${p1.y}, ${p1.x} ${p1.y}`;
+                      incPath += ` C ${cx} ${p0.y}, ${cx} ${p1.y}, ${p1.x} ${p1.y}`;
                     }
 
-                    const areaPath = `${revPath} L ${1000} 240 L 0 240 Z`;
+                    const areaPath = `${incPath} L 1000 220 L 0 220 Z`;
 
-                    // Expenses dotted line
+                    // Expenses dashed line
                     let expPath = "";
-                    const expPoints = chartData.map((d, i) => {
+                    chartSeries.forEach((d, i) => {
                       const x = i * stepX;
-                      const y = 230 - (d.expense / maxVal) * 200;
-                      return { x, y };
-                    });
-                    expPoints.forEach((p, i) => {
-                      if (i === 0) expPath += `M ${p.x} ${p.y}`;
-                      else expPath += ` L ${p.x} ${p.y}`;
+                      const y = 210 - (d.expenses / maxVal) * 190;
+                      if (i === 0) expPath += `M ${x} ${y}`;
+                      else expPath += ` L ${x} ${y}`;
                     });
 
                     return (
                       <>
-                        {/* Area fill */}
-                        <path d={areaPath} fill="url(#revenueGradient)" />
-
-                        {/* Revenue line */}
+                        <path d={areaPath} fill="url(#fintrackIncomeGrad)" />
                         <path
-                          d={revPath}
+                          d={incPath}
                           fill="none"
-                          stroke="#10b981"
-                          strokeWidth="2.8"
+                          stroke="#0891b2"
+                          strokeWidth="2.4"
                           strokeLinecap="round"
-                          className="drop-shadow-[0_2px_10px_rgba(16,185,129,0.5)]"
+                          className="drop-shadow-sm"
                         />
-
-                        {/* Expense dotted line */}
                         <path
                           d={expPath}
                           fill="none"
-                          stroke="#f43f5e"
-                          strokeWidth="2"
-                          strokeDasharray="5 5"
-                          strokeOpacity="0.85"
+                          stroke="#b7880f"
+                          strokeWidth="1.8"
+                          strokeDasharray="6 5"
                         />
 
-                        {/* Interactive Data Nodes */}
-                        {revPoints.map((pt, idx) => (
-                          <g
+                        {incPoints.map((pt, idx) => (
+                          <circle
                             key={idx}
-                            onMouseEnter={() => setHoveredPointIndex(idx)}
-                            onMouseLeave={() => setHoveredPointIndex(null)}
-                            className="cursor-pointer"
-                          >
-                            <circle
-                              cx={pt.x}
-                              cy={pt.y}
-                              r={hoveredPointIndex === idx ? 6 : 3.5}
-                              fill="#10b981"
-                              stroke="#16120f"
-                              strokeWidth="2"
-                              className="transition-all"
-                            />
-                          </g>
+                            cx={pt.x}
+                            cy={pt.y}
+                            r={hoveredChartPoint === idx ? 6 : 3.5}
+                            fill="#0891b2"
+                            stroke="#ffffff"
+                            strokeWidth="2"
+                            onMouseEnter={() => setHoveredChartPoint(idx)}
+                            onMouseLeave={() => setHoveredChartPoint(null)}
+                            className="cursor-pointer transition-all duration-200"
+                          />
                         ))}
                       </>
                     );
                   })()}
                 </svg>
 
-                {/* Hover Tooltip display */}
-                {hoveredPointIndex !== null && chartData[hoveredPointIndex] && (
+                {/* Hover Tooltip */}
+                {hoveredChartPoint !== null && chartSeries[hoveredChartPoint] && (
                   <div
-                    className="absolute z-20 rounded-xl border border-[#3e2e21] bg-[#1a1410] p-2.5 text-xs text-white shadow-2xl pointer-events-none transform -translate-x-1/2 -translate-y-full"
+                    className="absolute z-20 rounded-lg border border-[#e3e6ea] dark:border-[#2a2c2f] bg-white dark:bg-[#1b1c1e] p-2.5 text-xs text-[#111418] dark:text-white shadow-xl pointer-events-none transform -translate-x-1/2 -translate-y-full transition-all duration-150"
                     style={{
-                      left: `${(hoveredPointIndex / (chartData.length - 1)) * 100}%`,
+                      left: `${(hoveredChartPoint / (chartSeries.length - 1)) * 100}%`,
                       top: "35%",
                     }}
                   >
-                    <div className="font-bold text-amber-400 mb-1">
-                      {chartData[hoveredPointIndex].label} Summary
+                    <div className="font-bold text-[#0891b2] mb-1">
+                      {chartSeries[hoveredChartPoint].label} Overview
                     </div>
-                    <div className="flex items-center justify-between gap-4 text-emerald-400 font-semibold">
-                      <span>Revenue:</span>
-                      <span>ETB {chartData[hoveredPointIndex].revenue.toLocaleString()}</span>
+                    <div className="flex justify-between gap-3 text-xs">
+                      <span className="text-[#5f6670]">Income:</span>
+                      <strong className="text-cyan-700 dark:text-cyan-400 font-mono">
+                        ${chartSeries[hoveredChartPoint].income}
+                      </strong>
                     </div>
-                    <div className="flex items-center justify-between gap-4 text-rose-400 font-semibold">
-                      <span>Expense:</span>
-                      <span>ETB {chartData[hoveredPointIndex].expense.toLocaleString()}</span>
+                    <div className="flex justify-between gap-3 text-xs">
+                      <span className="text-[#5f6670]">Expenses:</span>
+                      <strong className="text-amber-700 dark:text-amber-400 font-mono">
+                        ${chartSeries[hoveredChartPoint].expenses}
+                      </strong>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* X Axis Labels */}
-              <div className="flex justify-between pt-3 text-[11px] font-semibold text-stone-400">
-                {chartData.map((d, i) => (
+              {/* X Axis labels */}
+              <div className="flex justify-between pt-3 text-[11px] text-[#5f6670] dark:text-[#8b8f94]">
+                {chartSeries.map((d, i) => (
                   <span
                     key={i}
-                    className={`transition ${hoveredPointIndex === i ? "text-amber-400 font-bold" : ""}`}
+                    className={`transition-colors ${hoveredChartPoint === i ? "text-cyan-600 font-bold" : ""}`}
                   >
                     {d.label}
                   </span>
                 ))}
               </div>
             </div>
-
-            {/* Chart Legend */}
-            <div className="flex items-center justify-end gap-5 pt-2 border-t border-[#241c16] text-xs">
-              <div className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50" />
-                <span className="text-stone-300 font-medium">Revenue (Inflow)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="h-0.5 w-3 border-t-2 border-dashed border-rose-400" />
-                <span className="text-stone-300 font-medium">Expense (Outflow)</span>
-              </div>
-            </div>
-          </div>
+          </article>
 
           {/* ============================================================== */}
-          {/* 3.4.2 RIGHT: PAYMENT METHODS & MONTHLY SPLIT (4 cols)          */}
+          {/* 3.4.2 RIGHT: MY CARDS & CARD SPENDING (4 cols)                 */}
           {/* ============================================================== */}
-          <div className="lg:col-span-4 flex flex-col justify-between gap-4">
+          <article className="lg:col-span-4 rounded-xl border border-[#e3e6ea] dark:border-[rgba(34,211,238,0.25)] bg-white dark:bg-[#141516] p-5 shadow-sm space-y-4 flex flex-col justify-between transition-all duration-300 hover:shadow-md">
             
-            {/* Widget 1: Payment Methods with Digital Card (From Screenshot 2) */}
-            <div className="rounded-2xl border border-[#2b221a] bg-[#16120f] p-5 shadow-xl space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-white tracking-tight">
-                  Payment Methods
-                </h3>
+            {/* My Cards Header */}
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold text-[#111418] dark:text-[#f2f3f4]">
+                My Cards
+              </h2>
+              <button
+                onClick={() => alert("Card management available.")}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[#e3e6ea] dark:border-[#232527] bg-[#f1f3f5] dark:bg-[#1b1c1e] px-2.5 py-1 text-xs font-medium text-[#111418] dark:text-[#f2f3f4] hover:border-cyan-500 hover:text-cyan-600 hover:scale-105 active:scale-95 transition-all"
+              >
+                <Plus className="h-3 w-3" />
+                <span>Add Card</span>
+              </button>
+            </div>
 
-                {/* Tab Selectors: Telebirr | Cash | CBE */}
-                <div className="flex items-center rounded-xl bg-[#201914] p-0.5 border border-[#2b221a]">
-                  {(["telebirr", "cash", "cbe"] as const).map((tab) => (
-                    <button
-                      key={tab}
-                      onClick={() => setActivePaymentTab(tab)}
-                      className={`rounded-lg px-2.5 py-1 text-[11px] font-bold capitalize transition ${
-                        activePaymentTab === tab
-                          ? "bg-[#2d2218] text-white shadow border border-[#3f2e21]"
-                          : "text-stone-400 hover:text-white"
-                      }`}
-                    >
-                      {tab === "cbe" ? "CBE" : tab}
-                    </button>
-                  ))}
+            {/* The Black Credit Card Widget with 3D Hover Lift */}
+            <div className="relative rounded-[14px] p-4 text-[#e5e7eb] aspect-[1.66] flex flex-col justify-between shadow-xl bg-gradient-to-br from-[#3a3c3f] via-[#232426] to-[#2d2f31] border border-[#3f4245] transition-all duration-300 hover:scale-[1.03] hover:rotate-[0.5deg] hover:shadow-2xl cursor-pointer">
+              {/* Chip & Contactless */}
+              <div className="flex items-center gap-2 text-[#c9cbcf]">
+                <div className="h-5 w-7 rounded-[4px] border border-amber-300/40 bg-amber-400/80 flex items-center justify-center text-[7px] font-black text-amber-950">
+                  CHIP
                 </div>
+                <Wifi className="h-3.5 w-3.5 rotate-90" />
               </div>
 
-              {/* The Glowing Realistic Digital Wallet Card */}
-              <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-tr ${paymentCardInfo.gradient} p-5 text-white shadow-2xl border flex flex-col justify-between h-44 group transition-all duration-300`}>
-                
-                {/* Chip & contactless wave */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="h-6 w-8 rounded bg-amber-400/80 border border-amber-300/40 flex items-center justify-center text-[8px] font-black text-amber-950">
-                      CHIP
-                    </div>
-                    <Wifi className="h-4 w-4 rotate-90 text-white/70" />
-                  </div>
-                  <span className="text-xs font-black tracking-widest uppercase text-white/90">
-                    {paymentCardInfo.brand}
-                  </span>
-                </div>
+              {/* Number */}
+              <div className="my-auto font-mono text-sm tracking-[0.14em] text-[#a3a6ab] whitespace-nowrap">
+                3110 2322 2342 1123
+              </div>
 
-                {/* Account / Phone */}
+              {/* Bottom Info + Mastercard circles */}
+              <div className="flex items-end justify-between text-xs whitespace-nowrap">
                 <div>
-                  <span className="text-xs font-mono tracking-widest text-white/80 block">
-                    {paymentCardInfo.accountNumber}
-                  </span>
-                  <span className="text-[10px] text-white/70 uppercase tracking-wider block mt-0.5">
-                    Available Balance
-                  </span>
+                  <small className="block text-[9.5px] text-[#9ca3af]">Card Holder Name</small>
+                  <strong className="font-semibold text-white">Lily Rose</strong>
                 </div>
-
-                {/* Big Balance & Share Pill */}
-                <div className="flex items-end justify-between">
-                  <h4 className="text-2xl font-black text-white tracking-tight">
-                    ETB {paymentCardInfo.balance.toLocaleString()}
-                  </h4>
-                  <span className="rounded-full bg-black/35 px-2.5 py-0.5 text-xs font-black text-emerald-200 border border-white/20 backdrop-blur-sm">
-                    {paymentCardInfo.share}
-                  </span>
+                <div>
+                  <small className="block text-[9.5px] text-[#9ca3af]">Expired Date</small>
+                  <strong className="font-semibold text-white">11/30</strong>
+                </div>
+                {/* Mastercard Logo */}
+                <div className="flex">
+                  <div className="h-4 w-4 rounded-full bg-[#eb001b]" />
+                  <div className="h-4 w-4 rounded-full bg-[#f79e1b] -ml-1.5 opacity-90" />
                 </div>
               </div>
             </div>
 
-            {/* Widget 2: This Month Money In vs Money Out Summary */}
-            <div className="rounded-2xl border border-[#2b221a] bg-[#16120f] p-4 sm:p-5 shadow-xl space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-white">This month</span>
-                <span className="rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] font-black">
-                  Net +ETB 51,720
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <div>
-                  <span className="text-[11px] text-stone-400 block font-medium">Money in</span>
-                  <span className="text-base font-black text-emerald-400 block mt-0.5">
-                    ETB 64,200
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[11px] text-stone-400 block font-medium">Money out</span>
-                  <span className="text-base font-black text-rose-400 block mt-0.5">
-                    ETB 12,480
-                  </span>
-                </div>
-              </div>
-
-              {/* Dual Colored Progress Split Bar (Green & Red) */}
-              <div className="w-full flex h-2 rounded-full overflow-hidden bg-stone-900 mt-2">
-                <div className="bg-emerald-500 h-full w-[84%] transition-all" />
-                <div className="bg-rose-500 h-full w-[16%] transition-all" />
-              </div>
+            {/* Card Spending Header */}
+            <div className="flex items-center justify-between pt-1">
+              <h3 className="text-xs font-semibold text-[#111418] dark:text-[#f2f3f4]">
+                Card Spending
+              </h3>
+              <select className="rounded-lg border border-[#e3e6ea] dark:border-[#232527] bg-[#f1f3f5] dark:bg-[#1b1c1e] px-2 py-1 text-xs text-[#111418] dark:text-[#f2f3f4] outline-none cursor-pointer">
+                <option>This Month</option>
+                <option>Last Month</option>
+                <option>This Year</option>
+              </select>
             </div>
 
-            {/* Widget 3: Latest Activity (ETB) */}
-            <div className="rounded-2xl border border-[#2b221a] bg-[#16120f] p-4 sm:p-5 shadow-xl space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                  Latest activity (ETB)
-                </h4>
-                <Link
-                  href="/receipts"
-                  className="text-[11px] text-amber-400 hover:text-amber-300 font-semibold"
-                >
-                  History
-                </Link>
-              </div>
-
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                      <ArrowDownLeft className="h-4 w-4" />
-                    </span>
-                    <div>
-                      <span className="block text-xs font-bold text-white">
-                        Dinner service payments
-                      </span>
-                      <span className="block text-[10px] text-stone-500">Today</span>
-                    </div>
-                  </div>
-                  <span className="text-xs font-bold text-emerald-400">+4,850</span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-500/15 text-rose-400 border border-rose-500/30">
-                      <ArrowUpRight className="h-4 w-4" />
-                    </span>
-                    <div>
-                      <span className="block text-xs font-bold text-white">
-                        Fresh Produce Supplier
-                      </span>
-                      <span className="block text-[10px] text-stone-500">Yesterday</span>
-                    </div>
-                  </div>
-                  <span className="text-xs font-bold text-stone-300">-4,250</span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-500/15 text-rose-400 border border-rose-500/30">
-                      <ArrowUpRight className="h-4 w-4" />
-                    </span>
-                    <div>
-                      <span className="block text-xs font-bold text-white">
-                        Water Bill
-                      </span>
-                      <span className="block text-[10px] text-stone-500">Oct 06</span>
-                    </div>
-                  </div>
-                  <span className="text-xs font-bold text-stone-300">-890</span>
-                </div>
-              </div>
+            {/* Spend Value & Trend */}
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <strong className="text-2xl font-bold text-[#111418] dark:text-white font-mono">
+                $2,486.50
+              </strong>
+              <span className="inline-flex items-center gap-0.5 text-xs font-medium text-[#15803d] dark:text-[#4ade80]">
+                <ArrowUpRight className="h-3.5 w-3.5" />
+                +8.6%
+              </span>
+              <small className="text-xs text-[#5f6670] dark:text-[#8b8f94]">vs last month</small>
             </div>
-          </div>
+
+            {/* The Segmented Pill Progress Meter with Hover Glow */}
+            <div className="flex gap-1 h-8 my-1 group" aria-label="Spending meter">
+              {Array.from({ length: meterCount }).map((_, idx) => (
+                <span
+                  key={idx}
+                  className={`flex-1 rounded-[2px] transition-all duration-200 hover:scale-125 cursor-pointer ${
+                    idx < activeMeterBars
+                      ? "bg-gradient-to-t from-[#0891b2] to-[#06b6d4] group-hover:brightness-110"
+                      : "bg-[#f1f3f5] dark:bg-[#1b1c1e]"
+                  }`}
+                />
+              ))}
+            </div>
+
+            {/* Limit Banner */}
+            <div className="rounded-lg bg-[#f1f3f5] dark:bg-[#1b1c1e] p-2 text-xs text-[#5f6670] dark:text-[#8b8f94]">
+              Monthly Limit: <strong className="text-[#111418] dark:text-[#f2f3f4] font-semibold">$4,000.00</strong>
+            </div>
+          </article>
         </div>
 
-        {/* 3.5 BOTTOM TABLE: RECENT TRANSACTIONS (From Screenshots) */}
-        <div className="rounded-2xl border border-[#2b221a] bg-[#16120f] p-5 shadow-xl space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-bold text-white tracking-tight">
-                Recent Transactions
-              </h3>
-              <p className="text-[11px] text-stone-400">
-                Detailed journal entries, restaurant supplier payouts, and settled guest orders
-              </p>
+        {/* 3.5 BOTTOM PANEL: TRANSACTION HISTORY */}
+        <article className="rounded-xl border border-[#e3e6ea] dark:border-[#232527] bg-white dark:bg-[#141516] p-5 shadow-sm space-y-4 transition-all duration-300 hover:shadow-md">
+          
+          {/* Header & Tools */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h2 className="text-base font-semibold text-[#111418] dark:text-[#f2f3f4]">
+              Transaction History
+            </h2>
+
+            <div className="flex items-center gap-2.5">
+              {/* Search */}
+              <div className="relative flex items-center bg-[#f1f3f5] dark:bg-[#1b1c1e] border border-[#e3e6ea] dark:border-[#232527] rounded-lg px-2.5 py-1 text-xs w-48 sm:w-56 focus-within:border-cyan-600 transition-colors">
+                <Search className="h-3.5 w-3.5 text-[#9aa1a9] mr-1.5 shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Search"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-transparent text-xs text-[#111418] dark:text-[#f2f3f4] focus:outline-none"
+                />
+              </div>
+
+              {/* Filter */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowFilterMenu(!showFilterMenu)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#e3e6ea] dark:border-[#232527] bg-[#f1f3f5] dark:bg-[#1b1c1e] px-2.5 py-1 text-xs font-medium text-[#111418] dark:text-[#f2f3f4] hover:border-cyan-500 hover:scale-105 active:scale-95 transition-all"
+                >
+                  <Filter className="h-3 w-3" />
+                  <span>Filter {statusFilter !== "All" ? `(${statusFilter})` : ""}</span>
+                </button>
+
+                {showFilterMenu && (
+                  <div className="absolute right-0 top-full mt-1.5 z-30 rounded-lg border border-[#e3e6ea] dark:border-[#2a2c2f] bg-white dark:bg-[#1b1c1e] p-1 shadow-xl min-w-[120px] animate-in fade-in">
+                    {(["All", "Success", "Pending", "Failed"] as const).map((st) => (
+                      <button
+                        key={st}
+                        onClick={() => {
+                          setStatusFilter(st);
+                          setShowFilterMenu(false);
+                        }}
+                        className={`w-full text-left rounded px-2.5 py-1 text-xs transition-colors ${
+                          statusFilter === st
+                            ? "bg-cyan-50 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-400 font-bold"
+                            : "text-[#5f6670] dark:text-[#8b8f94] hover:bg-[#f1f3f5] dark:hover:bg-[#232527]"
+                        }`}
+                      >
+                        {st}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-            <Link
-              href="/receipts"
-              className="flex items-center gap-1 text-xs font-bold text-stone-400 hover:text-white transition"
-            >
-              <span>View all</span>
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
           </div>
 
-          {/* Table Container */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+          {/* Table with interactive hover rows */}
+          <div className="overflow-x-auto border border-[#e3e6ea] dark:border-[#232527] rounded-lg">
+            <table className="w-full text-left text-xs min-w-[760px]">
               <thead>
-                <tr className="border-b border-[#261e18] text-[11px] uppercase tracking-wider text-stone-500">
-                  <th className="py-3 px-3">ID</th>
-                  <th className="py-3 px-3">Description</th>
-                  <th className="py-3 px-3">Category</th>
-                  <th className="py-3 px-3">Date</th>
-                  <th className="py-3 px-3">Amount</th>
-                  <th className="py-3 px-3 text-right">Status</th>
+                <tr className="bg-[#f1f3f5] dark:bg-[#1b1c1e] text-[#9aa1a9] dark:text-[#5d6166] font-normal text-xs">
+                  <th className="py-2.5 px-3 w-10">
+                    <input
+                      type="checkbox"
+                      checked={pagedTransactions.length > 0 && selectedIds.size === pagedTransactions.length}
+                      onChange={toggleSelectAll}
+                      className="rounded accent-cyan-600 cursor-pointer"
+                    />
+                  </th>
+                  <th className="py-2.5 px-3">Transaction ID</th>
+                  <th className="py-2.5 px-3">Description</th>
+                  <th className="py-2.5 px-3">Category</th>
+                  <th className="py-2.5 px-3">Date</th>
+                  <th className="py-2.5 px-3">Amount</th>
+                  <th className="py-2.5 px-3">Status</th>
+                  <th className="py-2.5 px-3 w-10"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#211a14]">
-                {filteredTransactions.map((tx) => {
-                  const isFood = tx.category === "Food Cost" || tx.category === "Dine-in Sales";
-                  const isLabor = tx.category === "Labor";
-                  const isUtil = tx.category === "Utilities";
-                  const isRent = tx.category === "Rent";
-                  const isMarketing = tx.category === "Marketing";
+              <tbody className="divide-y divide-[#e3e6ea] dark:divide-[#232527]">
+                {pagedTransactions.map((tx) => {
+                  const isSelected = selectedIds.has(tx.id);
+                  const catDotColor = CATEGORY_COLORS[tx.category] || "#0891b2";
 
                   return (
                     <tr
                       key={tx.id}
-                      className="hover:bg-[#1d1713] transition group text-stone-300"
+                      className={`hover:bg-cyan-50/50 dark:hover:bg-cyan-950/20 transition-all duration-150 group cursor-pointer ${
+                        isSelected ? "bg-cyan-50/60 dark:bg-cyan-950/20" : ""
+                      }`}
                     >
-                      <td className="py-3.5 px-3 font-mono text-[11px] text-stone-400 group-hover:text-amber-400 font-semibold">
+                      <td className="py-3 px-3">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelectId(tx.id)}
+                          className="rounded accent-cyan-600 cursor-pointer"
+                        />
+                      </td>
+                      <td className="py-3 px-3 font-mono text-[11.5px] text-[#5f6670] dark:text-[#8b8f94] group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
                         {tx.id}
                       </td>
-                      <td className="py-3.5 px-3 font-bold text-white">
-                        {tx.description}
-                      </td>
-                      <td className="py-3.5 px-3">
-                        <div className="flex items-center gap-2">
+                      <td className="py-3 px-3">
+                        <div className="flex items-center gap-2.5">
                           <span
-                            className={`h-2 w-2 rounded-full ${
-                              isFood
-                                ? "bg-emerald-400"
-                                : isLabor
-                                ? "bg-blue-400"
-                                : isUtil
-                                ? "bg-amber-400"
-                                : isRent
-                                ? "bg-rose-400"
-                                : isMarketing
-                                ? "bg-purple-400"
-                                : "bg-cyan-400"
-                            }`}
-                          />
-                          <span className="text-stone-300 font-medium">
-                            {tx.category}
+                            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${tx.badgeBg} ${tx.badgeColor} transition-transform duration-200 group-hover:scale-110`}
+                          >
+                            {tx.initial}
+                          </span>
+                          <span className="font-medium text-[#111418] dark:text-[#f2f3f4]">
+                            {tx.description}
                           </span>
                         </div>
                       </td>
-                      <td className="py-3.5 px-3 text-stone-400 font-medium">
+                      <td className="py-3 px-3">
+                        <span className="inline-flex items-center gap-1.5 text-xs text-[#5f6670] dark:text-[#8b8f94]">
+                          <span
+                            className="h-1.5 w-1.5 rounded-full"
+                            style={{ backgroundColor: catDotColor }}
+                          />
+                          <span>{tx.category}</span>
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-[#5f6670] dark:text-[#8b8f94]">
                         {tx.date}
                       </td>
-                      <td className="py-3.5 px-3 font-bold text-white font-mono">
-                        ETB {tx.amount.toLocaleString()}
+                      <td className="py-3 px-3 font-mono font-medium text-[#111418] dark:text-[#f2f3f4]">
+                        -${Math.abs(tx.amount).toFixed(2)}
                       </td>
-                      <td className="py-3.5 px-3 text-right">
+                      <td className="py-3 px-3">
                         <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+                          className={`inline-block rounded px-2 py-0.5 text-[11px] font-medium transition-transform group-hover:scale-105 ${
                             tx.status === "Success"
-                              ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                              ? "bg-[#dcfce7] dark:bg-[#12301a] text-[#15803d] dark:text-[#4ade80] border border-emerald-500/20"
                               : tx.status === "Pending"
-                              ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
-                              : "bg-rose-500/15 text-rose-400 border border-rose-500/30"
+                              ? "bg-[#fef3c7] dark:bg-[#3a3210] text-[#a16207] dark:text-[#facc15] border border-amber-500/20"
+                              : "bg-[#fee2e2] dark:bg-[#3a1414] text-[#b91c1c] dark:text-[#f87171] border border-rose-500/20"
                           }`}
                         >
-                          <span
-                            className={`h-1.5 w-1.5 rounded-full ${
-                              tx.status === "Success"
-                                ? "bg-emerald-400"
-                                : tx.status === "Pending"
-                                ? "bg-amber-400"
-                                : "bg-rose-400"
-                            }`}
-                          />
-                          <span>{tx.status}</span>
+                          {tx.status}
                         </span>
+                      </td>
+                      <td className="py-3 px-3 text-right">
+                        <button className="text-[#9aa1a9] hover:text-[#111418] dark:hover:text-white hover:scale-110 transition-all">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </button>
                       </td>
                     </tr>
                   );
@@ -1164,56 +893,35 @@ export default function OwnerDashboard() {
               </tbody>
             </table>
           </div>
-        </div>
-      </main>
 
-      {/* ============================================================== */}
-      {/* 4. UPGRADE TO PRO MODAL                                         */}
-      {/* ============================================================== */}
-      {showUpgradeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="max-w-md w-full rounded-2xl border border-[#3e2e21] bg-[#16120f] p-6 shadow-2xl space-y-4 text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-400 font-bold text-xl shadow">
-              ★
-            </div>
-            <h3 className="text-xl font-black text-white">Upgrade to Bistro OS Pro</h3>
-            <p className="text-xs text-stone-400 leading-relaxed">
-              Unlock real-time cloud multi-branch synchronization, AI revenue predictions, automated payroll, and unlimited order history.
-            </p>
-            <div className="rounded-xl border border-[#2b221a] bg-[#1c1612] p-3 text-xs text-left space-y-2">
-              <div className="flex items-center gap-2 text-stone-200">
-                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                <span>Unlimited multi-branch inventory tracking</span>
-              </div>
-              <div className="flex items-center gap-2 text-stone-200">
-                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                <span>Automated Telebirr & CBE merchant reconciliation</span>
-              </div>
-              <div className="flex items-center gap-2 text-stone-200">
-                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                <span>AI food cost anomaly alerts & budget forecasting</span>
-              </div>
-            </div>
-            <div className="flex gap-2 pt-2">
+          {/* Table Footer / Pager */}
+          <div className="flex items-center justify-between text-xs text-[#5f6670] dark:text-[#8b8f94] pt-2">
+            <span>
+              Showing {filteredTransactions.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}-
+              {Math.min(currentPage * pageSize, filteredTransactions.length)} of {filteredTransactions.length}
+            </span>
+            <div className="flex items-center gap-2">
               <button
-                onClick={() => setShowUpgradeModal(false)}
-                className="flex-1 py-2.5 rounded-xl border border-[#2b221a] text-xs font-bold text-stone-400 hover:text-white"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="flex h-7 w-7 items-center justify-center rounded border border-[#e3e6ea] dark:border-[#232527] bg-white dark:bg-[#141516] disabled:opacity-40 hover:bg-[#f1f3f5] hover:scale-105 active:scale-95 transition-all"
               >
-                Maybe Later
+                <ChevronLeft className="h-4 w-4" />
               </button>
+              <span className="text-xs font-medium text-[#111418] dark:text-white">
+                Page {currentPage} of {totalPages}
+              </span>
               <button
-                onClick={() => {
-                  alert("Pro tier activated for your restaurant tenant!");
-                  setShowUpgradeModal(false);
-                }}
-                className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 font-bold text-xs text-stone-950 shadow-lg shadow-amber-500/20"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="flex h-7 w-7 items-center justify-center rounded border border-[#e3e6ea] dark:border-[#232527] bg-white dark:bg-[#141516] disabled:opacity-40 hover:bg-[#f1f3f5] hover:scale-105 active:scale-95 transition-all"
               >
-                Activate Pro
+                <ChevronRight className="h-4 w-4" />
               </button>
             </div>
           </div>
-        </div>
-      )}
+        </article>
+      </main>
     </div>
   );
 }
