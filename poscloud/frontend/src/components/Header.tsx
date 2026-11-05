@@ -133,6 +133,10 @@ export default function Header() {
       : []),
   ];
 
+  if (pathname === "/") {
+    return null;
+  }
+
   if (!mounted) {
     return (
       <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 dark:border-zinc-800 dark:bg-zinc-950">
