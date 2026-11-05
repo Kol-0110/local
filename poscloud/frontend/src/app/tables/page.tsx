@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 import {
   Users,
   Clock,
@@ -15,6 +16,13 @@ import {
   X,
   Smartphone,
   Eye,
+  Search,
+  Sun,
+  Moon,
+  Bell,
+  Menu as MenuIcon,
+  ChevronRight,
+  Sparkles,
 } from "lucide-react";
 import {
   usePOSStore,
@@ -26,15 +34,19 @@ import {
 import { useAuth } from "@/lib/authContext";
 import PaymentModal from "@/components/PaymentModal";
 import ReceiptModal from "@/components/ReceiptModal";
+import Sidebar from "@/components/Sidebar";
 
 export default function TablesPage() {
   const { t } = useTranslation();
   const router = useRouter();
+  const { theme, setTheme } = useTheme();
   const { tables, orders } = usePOSStore();
   const { isSuperAdmin } = useAuth();
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedSection, setSelectedSection] = useState<string>("All");
   const [statusFilter, setStatusFilter] = useState<string>("All");
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Selected order for payment / details
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -58,9 +70,14 @@ export default function TablesPage() {
     return tables.filter((tbl) => {
       const matchSec = selectedSection === "All" || tbl.section === selectedSection;
       const matchStat = statusFilter === "All" || tbl.status === statusFilter;
-      return matchSec && matchStat;
+      const matchSearch =
+        searchQuery === "" ||
+        String(tbl.number).includes(searchQuery) ||
+        (tbl.waiterName && tbl.waiterName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        tbl.section.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchSec && matchStat && matchSearch;
     });
-  }, [tables, selectedSection, statusFilter]);
+  }, [tables, selectedSection, statusFilter, searchQuery]);
 
   // Open POS or Waiter with table
   const handleStartOrder = (tableNumber: number) => {
@@ -85,116 +102,145 @@ export default function TablesPage() {
   };
 
   return (
-    <div className="flex-1 bg-slate-950 p-4 sm:p-6 lg:p-8 text-slate-100 min-h-screen">
-      <div className="mx-auto max-w-7xl space-y-6">
+    <div className="min-h-screen bg-[#f4f6f8] dark:bg-[#0b0c0d] text-[#111418] dark:text-[#f2f3f4] flex flex-col lg:flex-row font-sans selection:bg-cyan-500/20 transition-colors duration-200">
+      
+      {/* 1. SHARED FINTRACK SIDEBAR */}
+      <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} />
+
+      {/* 2. MOBILE TOPBAR */}
+      <div className="lg:hidden flex items-center justify-between border-b border-[#e3e6ea] dark:border-[#232527] bg-white dark:bg-[#0f1011] px-4 py-3 sticky top-0 z-40">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-400 to-cyan-600 font-black text-[#04262d] text-xs">
+            //
+          </div>
+          <span className="font-bold text-[#111418] dark:text-white text-base">Fintrack</span>
+        </div>
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#e3e6ea] dark:border-[#232527] bg-[#f1f3f5] dark:bg-[#1b1c1e] text-[#111418] dark:text-[#f2f3f4]"
+        >
+          {mobileMenuOpen ? <X className="h-5 w-5" /> : <MenuIcon className="h-5 w-5" />}
+        </button>
+      </div>
+
+      {/* 3. MAIN CONTENT */}
+      <main className="flex-1 flex flex-col p-4 sm:p-6 lg:p-7 space-y-6 max-w-[1500px] w-full overflow-y-auto">
         
-        {/* Top Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-800 pb-5">
+        {/* Top Header Bar */}
+        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-white">
-              Floor Plan & Table Management
+            <h1 className="text-2xl font-bold tracking-tight text-[#111418] dark:text-[#f2f3f4]">
+              Floor Plan &amp; Tables
             </h1>
-            <p className="text-xs sm:text-sm text-slate-400">
-              Real-time table occupancies, active waiter assignments, and bill settlements
+            <p className="text-xs text-[#5f6670] dark:text-[#8b8f94] mt-0.5">
+              Live floor occupancy, active table bills, and assigned server dispatch
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Search Input */}
+            <div className="relative flex items-center bg-white dark:bg-[#141516] border border-[#e3e6ea] dark:border-[#232527] rounded-lg px-3 py-1.5 w-full sm:w-60 shadow-sm focus-within:border-cyan-600 transition duration-200">
+              <Search className="h-4 w-4 text-[#9aa1a9] dark:text-[#5d6166] mr-2 shrink-0" />
+              <input
+                type="text"
+                placeholder="Search table #, waiter..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-transparent text-xs text-[#111418] dark:text-[#f2f3f4] placeholder-[#9aa1a9] focus:outline-none"
+              />
+            </div>
+
+            {/* View Mode Badge or Mobile Switch */}
             {isSuperAdmin ? (
-              <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2 text-xs font-bold text-emerald-400">
-                <Eye className="h-4 w-4 text-emerald-400" />
-                <span>Super Admin View-Only</span>
+              <div className="flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                <Eye className="h-4 w-4 text-emerald-500" />
+                <span>Super Admin (View-Only)</span>
               </div>
             ) : (
               <button
                 onClick={() => router.push("/waiter")}
-                className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 px-4 py-2 text-xs font-bold text-white shadow-md hover:from-amber-500 hover:to-orange-500 transition"
+                className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:from-amber-500 hover:to-orange-500 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
               >
                 <Smartphone className="h-4 w-4" />
                 <span>Waiter Mobile View</span>
               </button>
             )}
+
+            {/* Notification Bell */}
+            <button className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#e3e6ea] dark:border-[#232527] bg-white dark:bg-[#141516] text-[#5f6670] dark:text-[#8b8f94] hover:text-[#111418] dark:hover:text-white transition duration-200 shadow-sm hover:shadow">
+              <Bell className="h-4 w-4" />
+            </button>
+
+            {/* Light / Dark Mode Toggle */}
+            <button
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              title="Toggle Light / Dark mode"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#e3e6ea] dark:border-[#232527] bg-white dark:bg-[#141516] text-[#5f6670] dark:text-[#8b8f94] hover:text-[#111418] dark:hover:text-white transition duration-200 shadow-sm hover:shadow"
+            >
+              {theme === "dark" ? (
+                <Sun className="h-4 w-4 text-amber-400" />
+              ) : (
+                <Moon className="h-4 w-4 text-[#5f6670]" />
+              )}
+            </button>
           </div>
+        </header>
+
+        {/* Status KPI Filter Cards with Hover Lift */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          {[
+            { id: "All", label: "All Tables", count: counts.all, color: "text-[#111418] dark:text-[#f2f3f4]", dot: "bg-cyan-500" },
+            { id: "available", label: "Available", count: counts.available, color: "text-emerald-600 dark:text-emerald-400", dot: "bg-emerald-500" },
+            { id: "occupied", label: "Occupied", count: counts.occupied, color: "text-amber-600 dark:text-amber-400", dot: "bg-amber-500" },
+            { id: "bill_requested", label: "Bill Due", count: counts.bill_requested, color: "text-purple-600 dark:text-purple-400", dot: "bg-purple-500" },
+            { id: "reserved", label: "Reserved", count: counts.reserved, color: "text-blue-600 dark:text-blue-400", dot: "bg-blue-500" },
+          ].map((item) => {
+            const isSelected = statusFilter === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setStatusFilter(item.id)}
+                className={`flex flex-col justify-between p-4 rounded-xl border text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${
+                  isSelected
+                    ? "bg-white dark:bg-[#18191b] border-cyan-500 shadow-md ring-2 ring-cyan-500/20"
+                    : "bg-white dark:bg-[#141516] border-[#e3e6ea] dark:border-[#232527] hover:border-slate-300 dark:hover:border-[#383a3e] shadow-sm"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[12px] font-medium text-[#5f6670] dark:text-[#8b8f94]">
+                    {item.label}
+                  </span>
+                  <span className={`h-2 w-2 rounded-full ${item.dot}`} />
+                </div>
+                <div className={`text-2xl font-black tracking-tight ${item.color}`}>
+                  {item.count}
+                </div>
+              </button>
+            );
+          })}
         </div>
 
         {/* Section Filter Pills */}
-        <div className="flex flex-wrap gap-2">
-          {["All", "Main Dining", "Terrace", "VIP Lounge"].map((sec) => (
-            <button
-              key={sec}
-              onClick={() => setSelectedSection(sec)}
-              className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${
-                selectedSection === sec
-                  ? "bg-emerald-600 text-white shadow-sm"
-                  : "bg-slate-900 text-slate-400 hover:bg-slate-800 border border-slate-800"
-              }`}
-            >
-              {sec}
-            </button>
-          ))}
-        </div>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
+            {["All", "Main Dining", "Terrace", "VIP Lounge"].map((sec) => (
+              <button
+                key={sec}
+                onClick={() => setSelectedSection(sec)}
+                className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                  selectedSection === sec
+                    ? "bg-cyan-600 text-white shadow-sm font-bold"
+                    : "bg-white dark:bg-[#141516] text-[#5f6670] dark:text-[#8b8f94] hover:text-[#111418] dark:hover:text-white border border-[#e3e6ea] dark:border-[#232527] hover:bg-[#f8f9fa] dark:hover:bg-[#18191b]"
+                }`}
+              >
+                {sec}
+              </button>
+            ))}
+          </div>
 
-        {/* Status Filter Cards */}
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-5">
-          <button
-            onClick={() => setStatusFilter("All")}
-            className={`rounded-2xl border p-3.5 text-left transition ${
-              statusFilter === "All"
-                ? "border-emerald-500 bg-slate-900 ring-2 ring-emerald-500/30"
-                : "border-slate-800 bg-slate-900/60 hover:bg-slate-900"
-            }`}
-          >
-            <p className="text-[11px] font-semibold text-slate-400">Total Tables</p>
-            <p className="text-2xl font-black text-white">{counts.all}</p>
-          </button>
-
-          <button
-            onClick={() => setStatusFilter("available")}
-            className={`rounded-2xl border p-3.5 text-left transition ${
-              statusFilter === "available"
-                ? "border-emerald-500 bg-emerald-950/40 ring-2 ring-emerald-500/30 text-emerald-400"
-                : "border-slate-800 bg-slate-900/60 hover:bg-slate-900"
-            }`}
-          >
-            <p className="text-[11px] font-semibold text-emerald-400">Available</p>
-            <p className="text-2xl font-black text-emerald-400">{counts.available}</p>
-          </button>
-
-          <button
-            onClick={() => setStatusFilter("occupied")}
-            className={`rounded-2xl border p-3.5 text-left transition ${
-              statusFilter === "occupied"
-                ? "border-amber-500 bg-amber-950/40 ring-2 ring-amber-500/30 text-amber-400"
-                : "border-slate-800 bg-slate-900/60 hover:bg-slate-900"
-            }`}
-          >
-            <p className="text-[11px] font-semibold text-amber-400">Occupied</p>
-            <p className="text-2xl font-black text-amber-400">{counts.occupied}</p>
-          </button>
-
-          <button
-            onClick={() => setStatusFilter("bill_requested")}
-            className={`rounded-2xl border p-3.5 text-left transition ${
-              statusFilter === "bill_requested"
-                ? "border-purple-500 bg-purple-950/40 ring-2 ring-purple-500/30 text-purple-400"
-                : "border-slate-800 bg-slate-900/60 hover:bg-slate-900"
-            }`}
-          >
-            <p className="text-[11px] font-semibold text-purple-400">Bill Requested</p>
-            <p className="text-2xl font-black text-purple-400">{counts.bill_requested}</p>
-          </button>
-
-          <button
-            onClick={() => setStatusFilter("reserved")}
-            className={`col-span-2 sm:col-span-1 rounded-2xl border p-3.5 text-left transition ${
-              statusFilter === "reserved"
-                ? "border-sky-500 bg-sky-950/40 ring-2 ring-sky-500/30 text-sky-400"
-                : "border-slate-800 bg-slate-900/60 hover:bg-slate-900"
-            }`}
-          >
-            <p className="text-[11px] font-semibold text-sky-400">Reserved</p>
-            <p className="text-2xl font-black text-sky-400">{counts.reserved}</p>
-          </button>
+          <div className="text-xs text-[#5f6670] dark:text-[#8b8f94] font-medium">
+            Showing <span className="font-bold text-[#111418] dark:text-white">{filteredTables.length}</span> tables
+          </div>
         </div>
 
         {/* Floor Plan Grid */}
@@ -206,31 +252,24 @@ export default function TablesPage() {
             return (
               <div
                 key={table.id}
-                className={`relative flex flex-col justify-between rounded-2xl border p-5 shadow-sm transition-all hover:shadow-md ${
-                  table.status === "available"
-                    ? "border-slate-800 bg-slate-900/90"
-                    : table.status === "bill_requested"
-                    ? "border-purple-500/60 bg-purple-950/20 ring-2 ring-purple-500/30"
-                    : table.status === "occupied"
-                    ? "border-amber-500/50 bg-amber-950/20"
-                    : "border-sky-800 bg-slate-900"
-                }`}
+                className="relative flex flex-col justify-between rounded-2xl border border-[#e3e6ea] dark:border-[#232527] bg-white dark:bg-[#141516] p-5 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1.5 group"
               >
+                {/* Top Table Info */}
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-800 text-lg font-black text-white shadow">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#f1f3f5] dark:bg-[#1f2022] text-lg font-black text-[#111418] dark:text-[#f2f3f4] border border-[#e3e6ea] dark:border-[#2b2d30] shadow-sm group-hover:scale-105 group-hover:border-cyan-500/40 transition-transform">
                       T{table.number}
                     </span>
 
                     <span
-                      className={`rounded-full px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider ${
+                      className={`rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider ${
                         table.status === "available"
-                          ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30"
                           : table.status === "bill_requested"
-                          ? "bg-purple-500/20 text-purple-300 border border-purple-500/40 animate-pulse"
+                          ? "bg-purple-50 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300 border border-purple-200 dark:border-purple-500/40 animate-pulse"
                           : table.status === "occupied"
-                          ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
-                          : "bg-sky-500/15 text-sky-400 border border-sky-500/30"
+                          ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30"
+                          : "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30"
                       }`}
                     >
                       {table.status === "bill_requested"
@@ -243,37 +282,39 @@ export default function TablesPage() {
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-4 text-xs text-slate-400">
-                    <span className="flex items-center gap-1">
+                  <div className="flex items-center gap-3 text-xs text-[#5f6670] dark:text-[#8b8f94]">
+                    <span className="flex items-center gap-1 font-medium">
                       <Users className="h-3.5 w-3.5" />
                       {table.seats} Seats
                     </span>
-                    <span className="text-[11px] font-semibold text-slate-500">• {table.section}</span>
+                    <span className="text-[11px] font-semibold text-[#9aa1a9] dark:text-[#5d6166]">• {table.section}</span>
                   </div>
 
                   {/* Active Order Preview if occupied */}
                   {isOccupied && activeOrder && (
-                    <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/80 p-3 space-y-1.5">
+                    <div className="mt-4 rounded-xl border border-[#e3e6ea] dark:border-[#232527] bg-[#f8f9fa] dark:bg-[#18191b] p-3 space-y-2">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="flex items-center gap-1 text-slate-400">
+                        <span className="flex items-center gap-1 text-[#5f6670] dark:text-[#8b8f94]">
                           <Clock className="h-3 w-3" />
                           {table.seatedAt || "Active"}
                         </span>
-                        <span className="font-bold text-slate-300">
+                        <span className="font-bold text-[#111418] dark:text-[#f2f3f4]">
                           {activeOrder.items.length} items
                         </span>
                       </div>
 
-                      <div className="flex items-center justify-between text-[11px] text-amber-400 font-bold">
-                        <span>Waiter:</span>
-                        <span>👨🏾‍🍳 {table.waiterName || activeOrder.waiterName || "Staff"}</span>
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-[#5f6670] dark:text-[#8b8f94]">Assigned Waiter:</span>
+                        <span className="font-bold text-amber-600 dark:text-amber-400">
+                          {table.waiterName || activeOrder.waiterName || "Staff"}
+                        </span>
                       </div>
 
-                      <div className="flex items-baseline justify-between border-t border-slate-850 pt-1.5">
-                        <span className="text-[11px] font-semibold text-slate-400">
+                      <div className="flex items-baseline justify-between border-t border-[#e3e6ea] dark:border-[#232527] pt-2">
+                        <span className="text-[11px] font-semibold text-[#5f6670] dark:text-[#8b8f94]">
                           Current Bill:
                         </span>
-                        <span className="text-base font-black text-emerald-400">
+                        <span className="text-base font-black text-emerald-600 dark:text-emerald-400">
                           {activeOrder.totalAmount.toLocaleString()} ETB
                         </span>
                       </div>
@@ -283,12 +324,12 @@ export default function TablesPage() {
 
                 {/* Table Actions / View-Only Mode */}
                 {isSuperAdmin ? (
-                  <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-500">
-                    <span className="flex items-center gap-1.5 text-slate-400 font-semibold">
-                      <Eye className="h-3.5 w-3.5 text-emerald-400" />
+                  <div className="mt-4 pt-3 border-t border-[#e3e6ea] dark:border-[#232527] flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold">
+                      <Eye className="h-3.5 w-3.5" />
                       <span>View-Only</span>
                     </span>
-                    <span className="text-[11px] font-mono text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded-md">
+                    <span className="text-[11px] font-mono text-[#5f6670] dark:text-[#8b8f94] bg-[#f1f3f5] dark:bg-[#1b1c1e] px-2 py-0.5 rounded-md border border-[#e3e6ea] dark:border-[#232527]">
                       Cannot Edit
                     </span>
                   </div>
@@ -297,7 +338,7 @@ export default function TablesPage() {
                     {table.status === "available" ? (
                       <button
                         onClick={() => handleStartOrder(table.number)}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-xs font-bold text-white shadow-md hover:bg-emerald-500 transition active:scale-95"
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 py-2.5 text-xs font-bold text-white shadow-sm hover:from-emerald-500 hover:to-teal-500 transition-all duration-200 hover:shadow-md hover:shadow-emerald-500/20 active:scale-[0.98]"
                       >
                         <PlusCircle className="h-4 w-4" />
                         <span>Take Order</span>
@@ -306,7 +347,7 @@ export default function TablesPage() {
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           onClick={() => handleStartOrder(table.number)}
-                          className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 py-2 text-xs font-bold text-slate-200 hover:bg-slate-700 transition"
+                          className="flex items-center justify-center gap-1.5 rounded-xl border border-[#e3e6ea] dark:border-[#2a2c2f] bg-[#f8f9fa] dark:bg-[#1b1c1e] py-2 text-xs font-bold text-[#111418] dark:text-[#f2f3f4] hover:bg-slate-200 dark:hover:bg-[#282a2d] transition"
                         >
                           <UtensilsCrossed className="h-3.5 w-3.5" />
                           <span>Add Items</span>
@@ -314,10 +355,10 @@ export default function TablesPage() {
 
                         <button
                           onClick={() => handleOpenPayment(table)}
-                          className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold text-white shadow transition ${
+                          className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold text-white shadow-sm transition active:scale-[0.98] ${
                             table.status === "bill_requested"
-                              ? "bg-purple-600 hover:bg-purple-500"
-                              : "bg-emerald-600 hover:bg-emerald-500"
+                              ? "bg-purple-600 hover:bg-purple-500 shadow-purple-600/20"
+                              : "bg-cyan-600 hover:bg-cyan-500 shadow-cyan-600/20"
                           }`}
                         >
                           <CreditCard className="h-3.5 w-3.5" />
@@ -329,7 +370,7 @@ export default function TablesPage() {
                     {isOccupied && table.status !== "bill_requested" && (
                       <button
                         onClick={() => requestTableBill(table.number)}
-                        className="flex w-full items-center justify-center gap-1.5 rounded-lg py-1 text-[11px] font-semibold text-purple-400 hover:bg-purple-950/40"
+                        className="flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-[11px] font-semibold text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/30 transition"
                       >
                         <Receipt className="h-3 w-3" />
                         <span>Mark Bill Requested</span>
@@ -341,7 +382,7 @@ export default function TablesPage() {
             );
           })}
         </div>
-      </div>
+      </main>
 
       {/* Payment Modal */}
       <PaymentModal

@@ -133,7 +133,7 @@ export default function Header() {
       : []),
   ];
 
-  if (pathname === "/") {
+  if (["/", "/receipts", "/tables", "/menu", "/roles"].includes(pathname)) {
     return null;
   }
 
